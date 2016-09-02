@@ -18,9 +18,9 @@ setup(
     include_package_data=True,
     install_requires=[
         'six',
-        'beautifulsoup4',
         'lxml',
         'numpy',
+        'parsel',
         'scikit-learn',
         'scipy',
     ],
