@@ -1,0 +1,12 @@
+*.pyc
+venv/
+build/
+dist/
+*.egg-info/
+.tox
+.idea
+htmlcov
+.coverage
+.cache
+*.jl.gz
+.ipynb_checkpoints/

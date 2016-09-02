@@ -1,0 +1,3 @@
+Scrapy==1.1.2
+pytest==3.0.2
+json_lines==0.1.1
