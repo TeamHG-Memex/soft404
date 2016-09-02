@@ -13,6 +13,10 @@ CONCURRENT_REQUESTS = 64
 CONCURRENT_REQUESTS_PER_DOMAIN = 4
 DOWNLOAD_TIMEOUT = 15
 
+DEPTH_PRIORITY = 1
+SCHEDULER_DISK_QUEUE = 'scrapy.squeues.PickleFifoDiskQueue'
+SCHEDULER_MEMORY_QUEUE = 'scrapy.squeues.FifoMemoryQueue'
+
 COOKIES_ENABLED = False
 TELNETCONSOLE_ENABLED = False
 RETRY_ENABLED = False
@@ -26,5 +30,15 @@ FEED_STORAGES = {
     'gzip': 'exports.GzipFileFeedStorage',
 }
 
+DOWNLOADER_MIDDLEWARES = {
+    'middleware.Gather404Middleware': 450,
+}
+
 LOG_LEVEL = 'INFO'
+
+# Per-domain
+MIN_200 = 10
+MIN_404 = 5
+
+PROB_404 = 0.3
 

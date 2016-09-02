@@ -23,9 +23,10 @@ class Spider(scrapy.Spider):
                 'status': response.status,
                 'headers': response.headers.to_unicode_dict(),
             }
+            prob_404 = self.settings.getfloat('PROB_404')
             for link in self.le.extract_links(response):
                 yield scrapy.Request(link.url)
-                if random.random() < 0.1:  # get some 404-s
+                if random.random() < prob_404:  # get some 404-s
                     p = urlsplit(link.url)
                     if len(p.path.strip('/')) > 1:
                         new_path = mangle_path(p.path)
