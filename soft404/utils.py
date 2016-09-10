@@ -28,8 +28,18 @@ def _cleaned_html_tree(html):
     return _clean_html(tree)
 
 
-def _selector_to_text(sel):
+def selector_to_text(sel):
     return sel.xpath('normalize-space()').extract_first('')
+
+
+def cleaned_selector(html):
+    try:
+        tree = _cleaned_html_tree(html)
+        sel = parsel.Selector(root=tree, type='html')
+    except (etree.XMLSyntaxError, etree.ParseError, etree.ParserError):
+        # likely plain text
+        sel = parsel.Selector(html)
+    return sel
 
 
 def html2text(html):
@@ -48,10 +58,4 @@ def html2text(html):
     >>> html2text("")
     ''
     """
-    try:
-        tree = _cleaned_html_tree(html)
-        sel = parsel.Selector(root=tree, type='html')
-    except (etree.XMLSyntaxError, etree.ParseError, etree.ParserError):
-        # likely plain text
-        sel = parsel.Selector(html)
-    return _selector_to_text(sel)
+    return selector_to_text(cleaned_selector(html))
