@@ -59,3 +59,31 @@ def html2text(html):
     ''
     """
     return selector_to_text(cleaned_selector(html))
+
+
+BLOCK_TAGS = {
+    'address', 'article', 'aside', 'audio', 'blockquote', 'canvas', 'dd',
+    'div', 'dl', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8',
+    'header', 'hgroup', 'hr', 'noscript', 'ol', 'output', 'p', 'pre',
+    'section', 'table', 'tfoot', 'ul', 'video',
+    # not really block, but makes sense to include
+    'li',
+}
+
+
+def get_text_blocks(tree):
+    text_blocks = []
+    current = []
+    tag = ''
+    for node in tree.iter():
+        if node.tag in BLOCK_TAGS:
+            if current:
+                text_blocks.append((tag, ' '.join(current)))
+                current = []
+            tag = node.tag
+        if node.text:
+            text = node.text.strip()
+            if text:
+                current.append(text)
+    return text_blocks
