@@ -36,7 +36,8 @@ def cleaned_selector(html):
     try:
         tree = _cleaned_html_tree(html)
         sel = parsel.Selector(root=tree, type='html')
-    except (etree.XMLSyntaxError, etree.ParseError, etree.ParserError):
+    except (etree.XMLSyntaxError, etree.ParseError, etree.ParserError,
+            UnicodeEncodeError):
         # likely plain text
         sel = parsel.Selector(html)
     return sel
