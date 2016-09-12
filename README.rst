@@ -10,5 +10,5 @@ Getting data
 Run the crawler for a while (results will appear in ``items.jl.gz`` file)::
 
     cd crawler
-    scrapy crawl spider -o gzip:items.jl
+    scrapy crawl spider -o gzip:items.jl -s JOBDIR=job
 
