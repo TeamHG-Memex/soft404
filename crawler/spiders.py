@@ -22,6 +22,7 @@ class Spider(scrapy.Spider):
                 'html': response.text,
                 'status': response.status,
                 'headers': response.headers.to_unicode_dict(),
+                'mangled_url': response.meta.get('mangled_url', False),
             }
             prob_404 = self.settings.getfloat('PROB_404')
             for link in self.le.extract_links(response):
@@ -30,8 +31,9 @@ class Spider(scrapy.Spider):
                     p = urlsplit(link.url)
                     if len(p.path.strip('/')) > 1:
                         new_path = mangle_path(p.path)
-                        yield scrapy.Request(urlunsplit(
-                            (p.scheme, p.netloc, new_path, p.query, p.fragment)))
+                        url = urlunsplit(
+                            (p.scheme, p.netloc, new_path, p.query, p.fragment))
+                        yield scrapy.Request(url, meta={'mangled_url': True})
 
 
 def mangle_path(path):
