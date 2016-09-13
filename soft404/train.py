@@ -75,11 +75,30 @@ def train_clf(clf, vect, data, train_idx, classes, n_epochs=2, batch_size=5000):
         print()
 
 
+def show_features(clf, vect, limit=20):
+    coef = list(enumerate(clf.coef_[0]))
+    coef.sort(key=lambda x: x[1], reverse=True)
+    print('\n{} non-zero features, {} positive and {} negative:'.format(
+            sum(abs(v) > 0 for _, v in coef),
+            sum(v > 0 for _, v in coef),
+            sum(v < 0 for _, v in coef),
+        ))
+    inverse = {idx: word for word, idx in vect.vocabulary_.items()}
+    print()
+    for idx, c in coef[:limit]:
+        print('%.3f %s' % (c, inverse[idx]))
+    print('...')
+    for idx, c in coef[-limit:]:
+        print('%.3f %s' % (c, inverse[idx]))
+    return coef, inverse
+
+
 def main():
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
     arg('filename', help='In "pickle stream" format')
     arg('--lang', default='en', help='Train only for this language')
+    arg('--show-features', action='store_true')
     args = parser.parse_args()
     reader = partial(file_reader, filename=args.filename)
 
@@ -137,6 +156,9 @@ def main():
 
     pred_prob_y = clf.predict_proba(vect.transform(test_x))[:,1]
     print('\nROC AUC: {:.3f}'.format(metrics.roc_auc_score(test_y, pred_prob_y)))
+
+    if args.show_features:
+        show_features(clf, vect)
 
 
 if __name__ == '__main__':
