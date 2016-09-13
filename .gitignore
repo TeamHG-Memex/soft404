@@ -10,3 +10,4 @@ htmlcov
 .cache
 *.jl.gz
 .ipynb_checkpoints/
+crawler/job/

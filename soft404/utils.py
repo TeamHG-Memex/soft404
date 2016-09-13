@@ -83,8 +83,11 @@ def get_text_blocks(tree):
                 text_blocks.append((tag, ' '.join(current)))
                 current = []
             tag = node.tag
-        if node.text:
-            text = node.text.strip()
+        for text in [node.text, node.tail]:
             if text:
-                current.append(text)
+                text = text.strip()
+                if text:
+                    current.append(text)
+    if current:
+        text_blocks.append((tag, ' '.join(current)))
     return text_blocks
