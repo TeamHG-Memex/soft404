@@ -28,26 +28,19 @@ def get_domain(url):
     return tldextract.extract(url).registered_domain.lower()
 
 
-def get_domain_indices(reader):
+def show_domain_stat(reader):
     domain_status_counts = Counter(
         (get_domain(item['url']), item['status']) for item in reader())
     domain_counts = Counter()
     for (domain, _), count in domain_status_counts.items():
         domain_counts[domain] += count
-    # TODO - exclude by count, not a fixed number
-    exclude_most_common = 5
-    exclude_domains = {
-        domain for domain, _ in domain_counts.most_common(exclude_most_common)}
-    domain_indices = {item['idx'] for item in reader()
-                      if get_domain(item['url']) not in exclude_domains}
     print('\nMost common domains in data (with {} domains total):'
           .format(len(domain_counts)))
     for domain, count in domain_counts.most_common(20):
-        print('{:>20}\t{:>5}\t200: {:>5}\t404: {:>5}'.format(
+        print('{:>40}\t{:>3}\t200: {:>3}\t404: {:>3}'.format(
             domain, count,
             domain_status_counts[domain, 200],
             domain_status_counts[domain, 404]))
-    return domain_indices
 
 
 def get_lang_indices(reader, only_lang):
@@ -111,14 +104,16 @@ def main():
     args = parser.parse_args()
     reader = partial(file_reader, filename=args.filename)
 
-    domain_indices = flt_indices = get_domain_indices(reader)
+    show_domain_stat(reader)
+    flt_indices = None
     if args.lang:
-        lang_indices = get_lang_indices(reader, args.lang)
-        flt_indices = lang_indices & domain_indices
+        flt_indices = get_lang_indices(reader, args.lang)
+        print('Using only data for "{}" language'.format(args.lang))
 
     def data(indices=None):
-        indices = (
-            set(indices) & flt_indices if indices is not None else flt_indices)
+        if flt_indices is not None:
+            indices = (flt_indices if indices is None
+                       else set(indices) & flt_indices)
         return reader(indices=indices)
 
     urls = [(item['idx'], item['url']) for item in data()]
