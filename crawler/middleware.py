@@ -6,13 +6,12 @@ import tldextract
 
 
 class Gather404Middleware(object):
-    """ Stop making requests to domains that have enough 404 pages crawled.
+    """ Limit number of requests to each domain.
     """
     def __init__(self, settings):
-        self.domain_status_counts = defaultdict(int)  # (domain, status): count
+        self.max_domain_requests = settings.getint('MAX_DOMAIN_REQUESTS')
+        self.domain_request_count = defaultdict(int)  # domain: count
         self.skipped_domains = set()
-        self.min_200 = settings.getint('MIN_200')
-        self.min_404 = settings.getint('MIN_404')
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -24,13 +23,14 @@ class Gather404Middleware(object):
 
     def process_response(self, request, response, spider):
         domain = get_domain(response.url)
-        self.domain_status_counts[domain, response.status] += 1
+        self.domain_request_count[domain] += 1
         if (domain not in self.skipped_domains and
-                self.domain_status_counts[domain, 200] >= self.min_200 and
-                self.domain_status_counts[domain, 404] >= self.min_404):
+                self.domain_request_count[domain] >= self.max_domain_requests):
             self.skipped_domains.add(domain)
-            logging.info('New skipped domain: {} ({} skipped total)'.format(
-                domain, len(self.skipped_domains)))
+            logging.info('New skipped domain: {} '
+                         '({} skipped total, crawled {} domains)'.format(
+                domain, len(self.skipped_domains), len(self.domain_request_count)))
+
         return response
 
 
