@@ -3,6 +3,7 @@ import argparse
 from collections import Counter
 from functools import partial
 from pprint import pprint
+import re
 
 import numpy as np
 from sklearn.cross_validation import LabelKFold
@@ -52,7 +53,12 @@ def get_xy(items, only_ys=False):
     ys = []
     for item in items:
         if not only_ys:
-            xs.append(item['text'])
+            text = item['text']
+            if item['title']:
+                title = ' '.join('__title__{}'.format(w)
+                                 for w in re.findall(r'\w+', item['title'], re.U))
+                text += ' ' + title
+            xs.append(text)
         ys.append(item['status'] == 404)
     ys = np.array(ys)
     return ys if only_ys else (xs, ys)
