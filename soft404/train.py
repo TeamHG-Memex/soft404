@@ -29,15 +29,24 @@ def get_domain(url):
 
 
 def get_domain_indices(reader):
-    domain_counts = Counter(get_domain(item['url']) for item in reader())
+    domain_status_counts = Counter(
+        (get_domain(item['url']), item['status']) for item in reader())
+    domain_counts = Counter()
+    for (domain, _), count in domain_status_counts.items():
+        domain_counts[domain] += count
     # TODO - exclude by count, not a fixed number
     exclude_most_common = 5
     exclude_domains = {
         domain for domain, _ in domain_counts.most_common(exclude_most_common)}
     domain_indices = {item['idx'] for item in reader()
                       if get_domain(item['url']) not in exclude_domains}
-    print('\nMost common domains in data:')
-    pprint(domain_counts.most_common(10))
+    print('\nMost common domains in data (with {} domains total):'
+          .format(len(domain_counts)))
+    for domain, count in domain_counts.most_common(20):
+        print('{:>20}\t{:>5}\t200: {:>5}\t404: {:>5}'.format(
+            domain, count,
+            domain_status_counts[domain, 200],
+            domain_status_counts[domain, 404]))
     return domain_indices
 
 
