@@ -57,8 +57,9 @@ def get_xy(items, only_ys=False):
         if not only_ys:
             text = item['text']
             if item['title']:
-                title = ' '.join('__title__{}'.format(w)
-                                 for w in re.findall(r'\w+', item['title'], re.U))
+                title = ' '.join(
+                    '__title__{}'.format(w)
+                    for w in re.findall(r'\w+', item['title'], re.U))
                 text += ' ' + title
             xs.append(text)
         ys.append(item['status'] == 404)
@@ -158,8 +159,9 @@ def main():
     print(metrics.classification_report(
         test_y, pred_y, target_names=['200', '404']))
 
-    pred_prob_y = clf.predict_proba(vect.transform(test_x))[:,1]
-    print('\nROC AUC: {:.3f}'.format(metrics.roc_auc_score(test_y, pred_prob_y)))
+    pred_prob_y = clf.predict_proba(vect.transform(test_x))[:, 1]
+    print('\nROC AUC: {:.3f}'.format(
+        metrics.roc_auc_score(test_y, pred_prob_y)))
 
     if args.show_features:
         show_features(clf, vect)
