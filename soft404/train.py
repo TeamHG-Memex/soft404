@@ -58,16 +58,26 @@ def get_xy(items, only_ys=False):
     ys = []
     for item in items:
         if not only_ys:
-            text = item['text']
-            if item['title']:
-                title = ' '.join(
-                    '__title__{}'.format(w)
-                    for w in re.findall(r'\w+', item['title'], re.U))
-                text += ' ' + title
-            xs.append(text)
+            xs.append(item_to_text(item))
         ys.append(item['status'] == 404)
     ys = np.array(ys)
     return ys if only_ys else (xs, ys)
+
+
+def item_to_text(item):
+    text = [item['text']]
+    if item['title']:
+        text.extend('__title__{}'.format(w) for w in tokenize(item['title']))
+    for tag, block_text in item.get('blocks', []):
+        text.extend('__{}__{}'.format(tag, w) for w in tokenize(block_text))
+    return ' '.join(text)
+
+
+token_pattern = r"(?u)\b[_\w][_\w]+\b"
+
+
+def tokenize(text):
+    return re.findall(token_pattern, text, re.U)
 
 
 def train_clf(clf, vect, data, train_idx, classes, n_epochs=2, batch_size=5000):
@@ -78,7 +88,7 @@ def train_clf(clf, vect, data, train_idx, classes, n_epochs=2, batch_size=5000):
             clf.partial_fit(vect.transform(_x), _y, classes=classes)
 
 
-def show_clf_features(clf, vect, limit=20):
+def show_clf_features(clf, vect, pos_limit=100, neg_limit=20):
     coef = list(enumerate(clf.coef_[0]))
     coef.sort(key=lambda x: x[1], reverse=True)
     print('\n{} non-zero features, {} positive and {} negative:'.format(
@@ -88,11 +98,13 @@ def show_clf_features(clf, vect, limit=20):
         ))
     inverse = {idx: word for word, idx in vect.vocabulary_.items()}
     print()
-    for idx, c in coef[:limit]:
-        print('%.3f %s' % (c, inverse[idx]))
+    for idx, c in coef[:pos_limit]:
+        if abs(c) > 0:
+            print('{:.3f} {}'.format(c, inverse[idx]))
     print('...')
-    for idx, c in coef[-limit:]:
-        print('%.3f %s' % (c, inverse[idx]))
+    for idx, c in coef[-neg_limit:]:
+        if abs(c) > 0:
+            print('{:.3f} {}'.format(c, inverse[idx]))
     return coef, inverse
 
 
@@ -156,6 +168,8 @@ def main():
     arg('--lang', default='en', help='Train only for this language')
     arg('--show-features', action='store_true')
     arg('--limit', type=int, help='Use only a part of all data')
+    arg('--no-mp', action='store_true', help='Do not use multiprocessing')
+    arg('--max-features', type=int, default=50000)
     args = parser.parse_args()
     reader = partial(file_reader, filename=args.filename, limit=args.limit)
 
@@ -167,10 +181,14 @@ def main():
     data = partial(data_iter, reader, flt_indices)
     urls = [(item['idx'], item['url']) for item in data()]
 
-    vect = CountVectorizer(ngram_range=(1, 1))
+    vect = CountVectorizer(
+        ngram_range=(1, 1),
+        max_features=args.max_features,
+        token_pattern=token_pattern,
+    )
     print('\nTraining vectorizer...')
     # it's ok to train a count vectorizer on all data here
-    vect.fit(item['text'] for item in data())
+    vect.fit(item_to_text(item) for item in data())
 
     print('Calculating cross-validation split by domain...')
     lkf = LabelKFold([get_domain(url) for _, url in urls], n_folds=10)
@@ -181,7 +199,8 @@ def main():
     with multiprocessing.Pool() as pool:
         all_metrics = defaultdict(list)
         print('Training and evaluating...')
-        for eval_metrics in pool.imap_unordered(_eval_clf, enumerate(lkf)):
+        _map = map if args.no_mp else pool.imap_unordered
+        for eval_metrics in _map(_eval_clf, enumerate(lkf)):
             for k, v in eval_metrics.items():
                 all_metrics[k].append(v)
         for k, v in sorted(all_metrics.items()):
