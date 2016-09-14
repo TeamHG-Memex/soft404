@@ -8,6 +8,7 @@ import multiprocessing
 
 import numpy as np
 from sklearn.cross_validation import LabelKFold
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn import metrics
@@ -80,7 +81,7 @@ def tokenize(text):
     return re.findall(token_pattern, text, re.U)
 
 
-def train_clf(clf, vect, data, train_idx, classes, n_epochs=2, batch_size=5000):
+def train_text_clf(clf, vect, data, train_idx, classes, n_epochs=2, batch_size=5000):
     for epoch in range(n_epochs):
         np.random.shuffle(train_idx)
         for indices in batches(train_idx, batch_size):
@@ -88,7 +89,7 @@ def train_clf(clf, vect, data, train_idx, classes, n_epochs=2, batch_size=5000):
             clf.partial_fit(vect.transform(_x), _y, classes=classes)
 
 
-def show_clf_features(clf, vect, pos_limit=100, neg_limit=20):
+def show_text_clf_features(clf, vect, pos_limit=100, neg_limit=20):
     coef = list(enumerate(clf.coef_[0]))
     coef.sort(key=lambda x: x[1], reverse=True)
     print('\n{} non-zero features, {} positive and {} negative:'.format(
@@ -106,6 +107,25 @@ def show_clf_features(clf, vect, pos_limit=100, neg_limit=20):
         if abs(c) > 0:
             print('{:.3f} {}'.format(c, inverse[idx]))
     return coef, inverse
+
+
+def get_all_features(text_clf, vect, data, indices, vect_out=None):
+    if vect_out is None:
+        vect_out = vect.transform(item_to_text(item) for item in data(indices))
+    text_feature = text_clf.predict_proba(vect_out)[:, 1]
+    text_feature = text_feature.reshape(-1, 1)
+    other_features = []
+    # Maybe one iteration (combining with text above) over data is faster?
+    for item in data(indices):
+        block_lengths = [len(tokenize(block)) for _, block in item['blocks']] \
+            if item.get('blocks') else None
+        other_features.append([
+            len(tokenize(item['text'])),
+            len(item['blocks']) if 'blocks' in item else 0,
+            np.max(block_lengths) if block_lengths else 0,
+            np.median(block_lengths) if block_lengths else 0,
+        ])
+    return np.hstack([text_feature, other_features])
 
 
 def check_class_weights(classes, data, train_idx, test_y):
@@ -150,15 +170,31 @@ def eval_clf(arg, *, data, urls, classes, vect, show_features=False):
         check_class_weights(classes, data, train_idx, test_y)
         check_domains(data, train_idx, test_idx)
 
-    clf = SGDClassifier(loss='log', penalty='l1')
-    train_clf(clf, vect, data, train_idx, classes)
+    text_clf = SGDClassifier(loss='log', penalty='l1')
+    train_text_clf(text_clf, vect, data, train_idx, classes)
     if fold_idx == 0 and show_features:
-        show_clf_features(clf, vect)
+        show_text_clf_features(text_clf, vect)
 
-    pred_y = clf.predict(vect.transform(test_x))
-    pred_prob_y = clf.predict_proba(vect.transform(test_x))[:, 1]
-    return {'F1': metrics.f1_score(test_y, pred_y),
-            'AUC': metrics.roc_auc_score(test_y, pred_prob_y)}
+    train_clf_x = get_all_features(text_clf, vect, data, train_idx)
+    clf = ExtraTreesClassifier(
+        n_estimators=10, max_depth=None, min_samples_split=1)
+    train_clf_y = get_xy(data(train_idx), only_ys=True)
+    clf.fit(train_clf_x, train_clf_y)
+
+    vect_out = vect.transform(test_x)
+    text_pred_y = text_clf.predict(vect_out)
+    text_pred_prob_y = text_clf.predict_proba(vect_out)[:, 1]
+    test_clf_x = get_all_features(text_clf, None, data, test_idx, vect_out)
+    pred_y = clf.predict(test_clf_x)
+    pred_prob_y = clf.predict_proba(test_clf_x)[:, 1]
+    return {
+        'F1_text': metrics.f1_score(test_y, text_pred_y),
+        'AUC_text': metrics.roc_auc_score(test_y, text_pred_prob_y),
+        'F1': metrics.f1_score(test_y, pred_y),
+        'AUC': metrics.roc_auc_score(test_y, pred_prob_y),
+    }
+
+
 
 
 def main():
@@ -170,6 +206,7 @@ def main():
     arg('--limit', type=int, help='Use only a part of all data')
     arg('--no-mp', action='store_true', help='Do not use multiprocessing')
     arg('--max-features', type=int, default=50000)
+    arg('--ngram-max', type=int, default=2)
     args = parser.parse_args()
     reader = partial(file_reader, filename=args.filename, limit=args.limit)
 
@@ -182,7 +219,7 @@ def main():
     urls = [(item['idx'], item['url']) for item in data()]
 
     vect = CountVectorizer(
-        ngram_range=(1, 2),
+        ngram_range=(1, args.ngram_max),
         max_features=args.max_features,
         token_pattern=token_pattern,
         binary=True,
