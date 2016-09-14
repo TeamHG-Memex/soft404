@@ -182,9 +182,10 @@ def main():
     urls = [(item['idx'], item['url']) for item in data()]
 
     vect = CountVectorizer(
-        ngram_range=(1, 1),
+        ngram_range=(1, 2),
         max_features=args.max_features,
         token_pattern=token_pattern,
+        binary=True,
     )
     print('\nTraining vectorizer...')
     # it's ok to train a count vectorizer on all data here
@@ -204,7 +205,7 @@ def main():
             for k, v in eval_metrics.items():
                 all_metrics[k].append(v)
         for k, v in sorted(all_metrics.items()):
-            print('{:<5} {:.2f} ± {:.2f}'.format(k, np.mean(v), np.std(v) * 2))
+            print('{:<5} {:.3f} ± {:.3f}'.format(k, np.mean(v), np.std(v) * 2))
 
 
 if __name__ == '__main__':
