@@ -16,6 +16,7 @@ from sklearn.utils.class_weight import compute_class_weight
 import tldextract
 
 from soft404.utils import pickle_stream_reader, batches, ignore_warnings
+from soft404.vectorizer import MaxWeightVectorizer
 
 
 def file_reader(filename, indices=None, limit=None):
@@ -59,26 +60,29 @@ def get_xy(items, only_ys=False):
     ys = []
     for item in items:
         if not only_ys:
-            xs.append(item_to_text(item))
+            xs.append(item_text_features(item))
         ys.append(item['status'] == 404)
     ys = np.array(ys)
     return ys if only_ys else (xs, ys)
 
 
-def item_to_text(item):
-    text = [item['text']]
+def item_text_features(item):
+    token_weights = [[(token, 1.) for token in tokenize(item['text'])]]
     if item['title']:
-        text.extend('__title__{}'.format(w) for w in tokenize(item['title']))
+        token_weights.append([
+            ('__title__{}'.format(w), 1.) for w in tokenize(item['title'])])
     for tag, block_text in item.get('blocks', []):
-        text.extend('__{}__{}'.format(tag, w) for w in tokenize(block_text))
-    return ' '.join(text)
-
-
-token_pattern = r"(?u)\b[_\w][_\w]+\b"
+        block_tokens = tokenize(block_text)
+        # The idea is that token weight should depend on the size of the block
+        # it appears in: short blocks should be more informative in this case.
+        token_weights.append([
+            ('__{}__{}'.format(tag, w), 2. / np.log(1. + len(block_tokens)))
+            for w in block_tokens])
+    return token_weights
 
 
 def tokenize(text):
-    return re.findall(token_pattern, text, re.U)
+    return re.findall(r'\w+', text, re.U)
 
 
 def train_text_clf(clf, vect, data, train_idx, classes,
@@ -112,7 +116,7 @@ def show_text_clf_features(clf, vect, pos_limit=100, neg_limit=20):
 
 def get_all_features(text_clf, vect, data, indices, vect_out=None):
     if vect_out is None:
-        vect_out = vect.transform(item_to_text(item) for item in data(indices))
+        vect_out = vect.transform(item_text_features(item) for item in data(indices))
     text_feature = text_clf.predict_proba(vect_out)[:, 1]
     text_feature = text_feature.reshape(-1, 1)
     other_features = []
@@ -222,15 +226,10 @@ def main():
     data = partial(data_iter, reader, flt_indices)
     urls = [(item['idx'], item['url']) for item in data()]
 
-    vect = CountVectorizer(
-        ngram_range=(1, args.ngram_max),
-        max_features=args.max_features,
-        token_pattern=token_pattern,
-        binary=True,
-    )
+    vect = MaxWeightVectorizer(ngram_max=args.ngram_max)
     print('\nTraining vectorizer...')
     # it's ok to train a count vectorizer on all data here
-    vect.fit(item_to_text(item) for item in data())
+    vect.fit(item_text_features(item) for item in data())
 
     print('Calculating cross-validation split by domain...')
     lkf = LabelKFold([get_domain(url) for _, url in urls], n_folds=10)
