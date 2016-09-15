@@ -15,7 +15,7 @@ from sklearn import metrics
 from sklearn.utils.class_weight import compute_class_weight
 import tldextract
 
-from soft404.utils import pickle_stream_reader, batches
+from soft404.utils import pickle_stream_reader, batches, ignore_warnings
 
 
 def file_reader(filename, indices=None, limit=None):
@@ -81,7 +81,8 @@ def tokenize(text):
     return re.findall(token_pattern, text, re.U)
 
 
-def train_text_clf(clf, vect, data, train_idx, classes, n_epochs=2, batch_size=5000):
+def train_text_clf(clf, vect, data, train_idx, classes,
+                   n_epochs=2, batch_size=5000):
     for epoch in range(n_epochs):
         np.random.shuffle(train_idx)
         for indices in batches(train_idx, batch_size):
@@ -115,15 +116,18 @@ def get_all_features(text_clf, vect, data, indices, vect_out=None):
     text_feature = text_clf.predict_proba(vect_out)[:, 1]
     text_feature = text_feature.reshape(-1, 1)
     other_features = []
-    # Maybe one iteration (combining with text above) over data is faster?
     for item in data(indices):
-        block_lengths = [len(tokenize(block)) for _, block in item['blocks']] \
-            if item.get('blocks') else None
+        if item.get('blocks'):
+            block_lengths = sorted(
+                len(tokenize(block)) for _, block in item['blocks'])
+        else:
+            block_lengths = None
         other_features.append([
             len(tokenize(item['text'])),
             len(item['blocks']) if 'blocks' in item else 0,
             np.max(block_lengths) if block_lengths else 0,
             np.median(block_lengths) if block_lengths else 0,
+            block_lengths[int(0.8 * len(block_lengths))] if block_lengths else 0,
         ])
     return np.hstack([text_feature, other_features])
 
@@ -175,16 +179,18 @@ def eval_clf(arg, *, data, urls, classes, vect, show_features=False):
     if fold_idx == 0 and show_features:
         show_text_clf_features(text_clf, vect)
 
-    train_clf_x = get_all_features(text_clf, vect, data, train_idx)
+    with ignore_warnings():
+        train_clf_x = get_all_features(text_clf, vect, data, train_idx)
     clf = ExtraTreesClassifier(
         n_estimators=10, max_depth=None, min_samples_split=1)
     train_clf_y = get_xy(data(train_idx), only_ys=True)
     clf.fit(train_clf_x, train_clf_y)
 
     vect_out = vect.transform(test_x)
-    text_pred_y = text_clf.predict(vect_out)
-    text_pred_prob_y = text_clf.predict_proba(vect_out)[:, 1]
-    test_clf_x = get_all_features(text_clf, None, data, test_idx, vect_out)
+    with ignore_warnings():
+        text_pred_y = text_clf.predict(vect_out)
+        text_pred_prob_y = text_clf.predict_proba(vect_out)[:, 1]
+        test_clf_x = get_all_features(text_clf, None, data, test_idx, vect_out)
     pred_y = clf.predict(test_clf_x)
     pred_prob_y = clf.predict_proba(test_clf_x)[:, 1]
     return {
@@ -193,8 +199,6 @@ def eval_clf(arg, *, data, urls, classes, vect, show_features=False):
         'F1': metrics.f1_score(test_y, pred_y),
         'AUC': metrics.roc_auc_score(test_y, pred_prob_y),
     }
-
-
 
 
 def main():
