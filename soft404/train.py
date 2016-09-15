@@ -9,7 +9,6 @@ import multiprocessing
 import numpy as np
 from sklearn.cross_validation import LabelKFold
 from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn import metrics
 from sklearn.utils.class_weight import compute_class_weight
@@ -167,7 +166,7 @@ def data_iter(reader, flt_indices, indices=None):
     return reader(indices=indices)
 
 
-def eval_clf(arg, *, data, urls, classes, vect, show_features=False):
+def eval_clf(arg, data, urls, classes, vect, show_features=False):
     fold_idx, (_train_idx, _test_idx) = arg
     train_idx, test_idx = (to_data_idx(_train_idx, urls),
                            to_data_idx(_test_idx, urls))
@@ -185,9 +184,9 @@ def eval_clf(arg, *, data, urls, classes, vect, show_features=False):
 
     with ignore_warnings():
         train_clf_x = get_all_features(text_clf, vect, data, train_idx)
+    train_clf_y = get_xy(data(train_idx), only_ys=True)
     clf = ExtraTreesClassifier(
         n_estimators=10, max_depth=None, min_samples_split=1)
-    train_clf_y = get_xy(data(train_idx), only_ys=True)
     clf.fit(train_clf_x, train_clf_y)
 
     vect_out = vect.transform(test_x)
