@@ -82,7 +82,7 @@ def item_text_features(item):
 
 
 def tokenize(text):
-    return re.findall(r'\w+', text, re.U)
+    return re.findall(r'\w+', text.lower(), re.U)
 
 
 def train_text_clf(clf, vect, data, train_idx, classes,
