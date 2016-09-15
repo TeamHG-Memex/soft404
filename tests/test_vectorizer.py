@@ -17,7 +17,7 @@ def test_fit_transform():
     items = [[[('a', 1), ('b', 2), ('aa', 6)], [('c', 3)]],
              [[('a', 8), ('aa', 3)]]]
     v.fit(items)
-    assert [k for k, _ in sorted(v.vocab.items(), key=lambda x: x[1])] == \
+    assert [k for k, _ in sorted(v.vocabulary_.items(), key=lambda x: x[1])] == \
            ['a', 'b', 'a b', 'aa', 'b aa', 'c', 'a aa']
     x = v.transform(items)
     assert np.allclose(x.toarray(), np.array([

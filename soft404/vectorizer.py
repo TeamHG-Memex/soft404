@@ -7,7 +7,7 @@ class MaxWeightVectorizer(object):
     for the final value, and go not get ngrams across different lists.
     """
     def __init__(self, ngram_max=1):
-        self.vocab = {}
+        self.vocabulary_ = {}
         assert ngram_max in {1, 2}
         self.ngram_max = ngram_max
 
@@ -24,8 +24,8 @@ class MaxWeightVectorizer(object):
     def fit(self, items):
         for item in items:
             for token, _ in self.all_ngrams(item):
-                if token not in self.vocab:
-                    self.vocab[token] = len(self.vocab)
+                if token not in self.vocabulary_:
+                    self.vocabulary_[token] = len(self.vocabulary_)
 
     def transform(self, items):
         values = []
@@ -34,7 +34,7 @@ class MaxWeightVectorizer(object):
         for item in items:
             item_weights = {}
             for token, weight in self.all_ngrams(item):
-                token_id = self.vocab.get(token)
+                token_id = self.vocabulary_.get(token)
                 if token_id is not None:
                     current_weight = item_weights.get(token_id)
                     item_weights[token_id] = (
@@ -45,6 +45,6 @@ class MaxWeightVectorizer(object):
                 values.append(max_weight)
             indptr.append(len(j_indices))
         x = sp.csr_matrix((values, j_indices, indptr),
-                          shape=(len(indptr) - 1, len(self.vocab)))
+                          shape=(len(indptr) - 1, len(self.vocabulary_)))
         x.sum_duplicates()  # should be no-op
         return x
