@@ -1,5 +1,7 @@
+import contextlib
 import pickle
 import struct
+import warnings
 
 import langdetect
 from langdetect.lang_detect_exception import LangDetectException
@@ -140,3 +142,10 @@ def get_lang(text):
 def batches(lst, size):
     for idx in range(0, len(lst), size):
         yield lst[idx:idx + size]
+
+
+@contextlib.contextmanager
+def ignore_warnings():
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        yield
