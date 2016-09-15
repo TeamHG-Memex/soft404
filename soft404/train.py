@@ -225,7 +225,8 @@ def main():
     data = partial(data_iter, reader, flt_indices)
     urls = [(item['idx'], item['url']) for item in data()]
 
-    vect = MaxWeightVectorizer(ngram_max=args.ngram_max)
+    vect = MaxWeightVectorizer(
+        ngram_max=args.ngram_max, max_features=args.max_features)
     print('\nTraining vectorizer...')
     # it's ok to train a count vectorizer on all data here
     vect.fit(item_text_features(item) for item in data())

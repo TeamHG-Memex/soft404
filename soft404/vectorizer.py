@@ -1,3 +1,5 @@
+from collections import Counter
+
 import scipy.sparse as sp
 
 
@@ -6,10 +8,11 @@ class MaxWeightVectorizer(object):
     (token, weight) pairs, and we take a max of token weights
     for the final value, and go not get ngrams across different lists.
     """
-    def __init__(self, ngram_max=1):
+    def __init__(self, ngram_max=1, max_features=None):
         self.vocabulary_ = {}
         assert ngram_max in {1, 2}
         self.ngram_max = ngram_max
+        self.max_features = max_features
 
     def all_ngrams(self, item):
         for block in item:
@@ -22,9 +25,20 @@ class MaxWeightVectorizer(object):
                 prev_pair = pair
 
     def fit(self, items):
+        token_counts = Counter()
         for item in items:
             for token, _ in self.all_ngrams(item):
                 if token not in self.vocabulary_:
+                    self.vocabulary_[token] = len(self.vocabulary_)
+                if self.max_features:
+                    token_counts[token] += 1
+        if self.max_features:
+            features = {token for token, _ in
+                        token_counts.most_common(self.max_features)}
+            old_vocabulary = self.vocabulary_
+            self.vocabulary_ = {}
+            for token in old_vocabulary:
+                if token in features:
                     self.vocabulary_[token] = len(self.vocabulary_)
 
     def transform(self, items):
