@@ -1,12 +1,12 @@
 import contextlib
-import pickle
-import struct
+import re
 import warnings
 
 import lxml
 from lxml import etree
 from lxml.html.clean import Cleaner
 import parsel
+import numpy as np
 
 
 _clean_html = Cleaner(
@@ -103,3 +103,47 @@ def ignore_warnings():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         yield
+
+
+def html_to_item(html):
+    sel = cleaned_selector(html)
+    text = selector_to_text(sel)
+    text_item = {
+        'text': text,
+        'title': ' '.join(sel.xpath('/html/head/title//text()').extract()),
+    }
+    body = sel.xpath('/html/body')
+    if body:
+        text_item['blocks'] = get_text_blocks(body[0].root)
+    return text_item
+
+
+def item_to_text(item):
+    text = [item['text']]
+    if item['title']:
+        text.extend('__title__{}'.format(w) for w in tokenize(item['title']))
+    for tag, block_text in item.get('blocks', []):
+        text.extend('__{}__{}'.format(tag, w) for w in tokenize(block_text))
+    return ' '.join(text)
+
+
+token_pattern = r'(?u)\b[_\w][_\w]+\b'
+
+
+def tokenize(text):
+    return re.findall(token_pattern, text, re.U)
+
+
+def item_numeric_features(item):
+    if item.get('blocks'):
+        block_lengths = sorted(
+            len(tokenize(block)) for _, block in item['blocks'])
+    else:
+        block_lengths = None
+    return [
+        len(tokenize(item['text'])),
+        len(item['blocks']) if 'blocks' in item else 0,
+        np.max(block_lengths) if block_lengths else 0,
+        np.median(block_lengths) if block_lengths else 0,
+        block_lengths[int(0.8 * len(block_lengths))] if block_lengths else 0,
+    ]

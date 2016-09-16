@@ -5,7 +5,6 @@ from functools import partial
 import os.path
 import pickle
 from pprint import pprint
-import re
 import multiprocessing
 
 import json_lines
@@ -17,7 +16,9 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn import metrics
 
-from soft404.utils import ignore_warnings
+from soft404.utils import (
+    ignore_warnings, item_to_text, token_pattern, item_numeric_features)
+from soft404.predict import Soft404Classifier
 
 
 def main():
@@ -31,8 +32,9 @@ def main():
     arg('--no-mp', action='store_true', help='Do not use multiprocessing')
     arg('--max-features', type=int, default=50000)
     arg('--ngram-max', type=int, default=2)
-    arg('--n-best-features', type=int,
+    arg('--n-best-features', type=int, default=1000,
         help='Re-train using specified number of best features')
+    arg('--save', help='Train on all data and save classifier')
     args = parser.parse_args()
 
     with json_lines.open(args.in_prefix + '.meta.jl.gz') as f:
@@ -66,17 +68,21 @@ def main():
         n_best_features=args.n_best_features,
         )
 
-    lkf = LabelKFold([item['domain'] for item in meta], n_folds=10)
-    with multiprocessing.Pool() as pool:
-        all_metrics = defaultdict(list)
-        print('Training and evaluating...')
-        _map = map if args.no_mp else pool.imap_unordered
-        for eval_metrics in _map(_eval_clf, enumerate(lkf)):
-            for k, v in eval_metrics.items():
-                all_metrics[k].append(v)
-        print()
-        for k, v in sorted(all_metrics.items()):
-            print('{:<5} {:.3f} ± {:.3f}'.format(k, np.mean(v), np.std(v) * 2))
+    if args.save:
+        _eval_clf((0, (np.array(range(len(meta))), [])), save=args.save)
+    else:
+        lkf = LabelKFold([item['domain'] for item in meta], n_folds=10)
+        with multiprocessing.Pool() as pool:
+            all_metrics = defaultdict(list)
+            print('Training and evaluating...')
+            _map = map if args.no_mp else pool.imap_unordered
+            for eval_metrics in _map(_eval_clf, enumerate(lkf)):
+                for k, v in eval_metrics.items():
+                    all_metrics[k].append(v)
+            print()
+            for k, v in sorted(all_metrics.items()):
+                print('{:<5} {:.3f} ± {:.3f}'
+                      .format(k, np.mean(v), np.std(v) * 2))
 
 
 def get_text_features(in_prefix, data, ngram_max=1, max_features=None):
@@ -106,22 +112,25 @@ def get_vect_filename(in_prefix):
 
 
 def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
-             show_features=False, n_best_features=None):
+             show_features=False, n_best_features=None, save=None):
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
     text_clf = trained_text_clf(text_features, ys, train_idx)
+    vect = None
     if show_features and fold_idx == 0:
-        show_text_clf_features(text_clf, load_vect(vect_filename))
+        vect = load_vect(vect_filename)
+        show_text_clf_features(text_clf, vect)
     result_metrics = {}
     test_y = ys[test_idx]
     if n_best_features:
-        result_metrics.update({
-            'F1_text_full': metrics.f1_score(
-                test_y, text_clf.predict(text_features[test_idx])),
-            'AUC_text_full': metrics.roc_auc_score(
-                test_y, text_clf.predict_proba(text_features[test_idx])[:, 1]),
-        })
+        if len(test_idx):
+            result_metrics.update({
+                'F1_text_full': metrics.f1_score(
+                    test_y, text_clf.predict(text_features[test_idx])),
+                'AUC_text_full': metrics.roc_auc_score(
+                    test_y, text_clf.predict_proba(text_features[test_idx])[:, 1]),
+            })
         coef = sorted(enumerate(text_clf.coef_[0]),
                       key=lambda x: x[1], reverse=True)
         best_feature_indices = [
@@ -135,14 +144,21 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     all_features = np.hstack([text_proba.reshape(-1, 1), numeric_features])
     clf = GradientBoostingClassifier()
     clf.fit(all_features[train_idx], ys[train_idx])
-    all_features_test = all_features[test_idx]
-    result_metrics.update({
-        'F1_text': metrics.f1_score(test_y, text_clf.predict(text_features[test_idx])),
-        'AUC_text': metrics.roc_auc_score(test_y, text_proba[test_idx]),
-        'F1': metrics.f1_score(test_y, clf.predict(all_features_test)),
-        'AUC': metrics.roc_auc_score(
-            test_y, clf.predict_proba(all_features_test)[:, 1]),
-    })
+    if len(test_idx):
+        all_features_test = all_features[test_idx]
+        result_metrics.update({
+            'F1_text': metrics.f1_score(
+                test_y, text_clf.predict(text_features[test_idx])),
+            'AUC_text': metrics.roc_auc_score(test_y, text_proba[test_idx]),
+            'F1': metrics.f1_score(test_y, clf.predict(all_features_test)),
+            'AUC': metrics.roc_auc_score(
+                test_y, clf.predict_proba(all_features_test)[:, 1]),
+        })
+    if save:
+        vect = vect or load_vect(vect_filename)
+        import IPython; IPython.embed()
+        # TODO - rebuild vectorizer with current features
+        Soft404Classifier.save_model(save, vect, text_clf, clf)
     return result_metrics
 
 
@@ -192,22 +208,6 @@ def get_lang_indices(meta, only_lang):
     return {idx for idx, lang in langs if lang == only_lang}
 
 
-def item_to_text(item):
-    text = [item['text']]
-    if item['title']:
-        text.extend('__title__{}'.format(w) for w in tokenize(item['title']))
-    for tag, block_text in item.get('blocks', []):
-        text.extend('__{}__{}'.format(tag, w) for w in tokenize(block_text))
-    return ' '.join(text)
-
-
-token_pattern = r'(?u)\b[_\w][_\w]+\b'
-
-
-def tokenize(text):
-    return re.findall(token_pattern, text, re.U)
-
-
 def get_numeric_features(in_prefix, data):
     features_filename = '{}.numeric_features.joblib'.format(in_prefix)
     if os.path.exists(features_filename):
@@ -216,21 +216,7 @@ def get_numeric_features(in_prefix, data):
         return joblib.load(features_filename)
     else:
         print('Building numeric features...')
-        features = []
-        for item in data():
-            if item.get('blocks'):
-                block_lengths = sorted(
-                    len(tokenize(block)) for _, block in item['blocks'])
-            else:
-                block_lengths = None
-            features.append([
-                len(tokenize(item['text'])),
-                len(item['blocks']) if 'blocks' in item else 0,
-                np.max(block_lengths) if block_lengths else 0,
-                np.median(block_lengths) if block_lengths else 0,
-                block_lengths[int(0.8 * len(block_lengths))] if block_lengths else 0,
-            ])
-        features = np.array(features)
+        features = np.array([item_numeric_features(item) for item in data()])
         joblib.dump(features, features_filename)
         return features
 

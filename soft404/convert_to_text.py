@@ -9,24 +9,18 @@ import langdetect
 from langdetect.lang_detect_exception import LangDetectException
 import tldextract
 
-from soft404.utils import cleaned_selector, selector_to_text, get_text_blocks
+from soft404.utils import html_to_item
 
 
 def convert_item(item):
     try:
-        sel = cleaned_selector(item.pop('html'))
-        text = selector_to_text(sel)
-        text_item = {
+        text_item = html_to_item(item['html'])
+        text_item.update({
             'url': item['url'],
             'domain': get_domain(item['url']),
-            'text': text,
-            'title': ' '.join(sel.xpath('/html/head/title//text()').extract()),
             'status': item['status'],
-            'lang': get_lang(text),
-        }
-        body = sel.xpath('/html/body')
-        if body:
-            text_item['blocks'] = get_text_blocks(body[0].root)
+            'lang': get_lang(text_item['text']),
+        })
     except Exception:
         return None
     else:
