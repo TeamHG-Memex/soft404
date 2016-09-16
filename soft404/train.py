@@ -99,7 +99,7 @@ def eval_clf(arg, text_features, numeric_features, ys):
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
-    text_clf = SGDClassifier(loss='log', penalty='l1')
+    text_clf = SGDClassifier(loss='log', penalty='l1', alpha=0.001)
     text_features_train = text_features[train_idx]
     train_y = ys[train_idx]
     text_clf.fit(text_features_train, train_y)
