@@ -3,8 +3,6 @@ import pickle
 import struct
 import warnings
 
-import langdetect
-from langdetect.lang_detect_exception import LangDetectException
 import lxml
 from lxml import etree
 from lxml.html.clean import Cleaner
@@ -98,50 +96,6 @@ def get_text_blocks(tree):
     if current:
         text_blocks.append((tag, ' '.join(current)))
     return text_blocks
-
-
-def write_pickle_stream(item, outfile):
-    """ Write an item to the file in "pickle stream" format.
-    outfile should be open in "wb" mode.
-    """
-    data = pickle.dumps(item, protocol=pickle.HIGHEST_PROTOCOL)
-    outfile.write(struct.pack('i', len(data)))
-    outfile.write(data)
-
-
-def pickle_stream_reader(infile, indices=None):
-    """ A "pickle stream" reader. Yields pairs of (index, item), where index is always
-    an index among all items. If indices is given, then only items with specified
-    indices are returned, and other items are skipped efficiently.
-    """
-    if indices is not None:
-        indices = set(indices)
-    idx = 0
-    while True:
-        size_data = infile.read(4)
-        if not size_data:
-            break
-        size, = struct.unpack('i', size_data)
-        if indices is None or idx in indices:
-            item = pickle.loads(infile.read(size))
-            yield idx, item
-        else:
-            infile.seek(infile.tell() + size)
-        idx += 1
-
-
-def get_lang(text):
-    try:
-        langs = langdetect.detect_langs(text)
-    except LangDetectException:
-        return ''
-    else:
-        return langs[0].lang
-
-
-def batches(lst, size):
-    for idx in range(0, len(lst), size):
-        yield lst[idx:idx + size]
 
 
 @contextlib.contextmanager
