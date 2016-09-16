@@ -31,6 +31,8 @@ def main():
     arg('--no-mp', action='store_true', help='Do not use multiprocessing')
     arg('--max-features', type=int, default=50000)
     arg('--ngram-max', type=int, default=2)
+    arg('--n-best-features', type=int,
+        help='Re-train using specified number of best features')
     args = parser.parse_args()
 
     with json_lines.open(args.in_prefix + '.meta.jl.gz') as f:
@@ -61,6 +63,7 @@ def main():
         ys=ys,
         show_features=args.show_features,
         vect_filename=get_vect_filename(args.in_prefix),
+        n_best_features=args.n_best_features,
         )
 
     lkf = LabelKFold([item['domain'] for item in meta], n_folds=10)
@@ -103,34 +106,56 @@ def get_vect_filename(in_prefix):
 
 
 def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
-             show_features=False):
+             show_features=False, n_best_features=None):
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
-    text_clf = SGDClassifier(loss='log', penalty='l1', alpha=0.001)
-    text_features_train = text_features[train_idx]
-    train_y = ys[train_idx]
-    text_clf.fit(text_features_train, train_y)
+    text_clf = trained_text_clf(text_features, ys, train_idx)
     if show_features and fold_idx == 0:
-        with open(vect_filename, 'rb') as f:
-            vect = pickle.load(f)
-        show_text_clf_features(text_clf, vect)
-    text_features_test = text_features[test_idx]
+        show_text_clf_features(text_clf, load_vect(vect_filename))
+    result_metrics = {}
+    test_y = ys[test_idx]
+    if n_best_features:
+        result_metrics.update({
+            'F1_text_full': metrics.f1_score(
+                test_y, text_clf.predict(text_features[test_idx])),
+            'AUC_text_full': metrics.roc_auc_score(
+                test_y, text_clf.predict_proba(text_features[test_idx])[:, 1]),
+        })
+        coef = sorted(enumerate(text_clf.coef_[0]),
+                      key=lambda x: x[1], reverse=True)
+        best_feature_indices = [
+            idx for idx, weight in coef[:n_best_features] if weight > 0]
+        result_metrics['selected_features'] = len(best_feature_indices)
+        text_features = text_features[:, best_feature_indices]
+        text_clf = trained_text_clf(text_features, ys, train_idx)
     # Build a numeric classifier on top of text classifier
     with ignore_warnings():
         text_proba = text_clf.predict_proba(text_features)[:, 1]
     all_features = np.hstack([text_proba.reshape(-1, 1), numeric_features])
     clf = GradientBoostingClassifier()
-    clf.fit(all_features[train_idx], train_y)
-    test_y = ys[test_idx]
+    clf.fit(all_features[train_idx], ys[train_idx])
     all_features_test = all_features[test_idx]
-    return {
-        'F1_text': metrics.f1_score(test_y, text_clf.predict(text_features_test)),
+    result_metrics.update({
+        'F1_text': metrics.f1_score(test_y, text_clf.predict(text_features[test_idx])),
         'AUC_text': metrics.roc_auc_score(test_y, text_proba[test_idx]),
         'F1': metrics.f1_score(test_y, clf.predict(all_features_test)),
         'AUC': metrics.roc_auc_score(
             test_y, clf.predict_proba(all_features_test)[:, 1]),
-    }
+    })
+    return result_metrics
+
+
+def trained_text_clf(text_features, ys, train_idx):
+    text_clf = SGDClassifier(loss='log', penalty='l1', alpha=0.001)
+    text_features_train = text_features[train_idx]
+    text_clf.fit(text_features_train, ys[train_idx])
+    return text_clf
+
+
+def load_vect(vect_filename):
+    with open(vect_filename, 'rb') as f:
+        return pickle.load(f)
 
 
 def show_text_clf_features(clf, vect, pos_limit=100, neg_limit=20):
@@ -176,7 +201,7 @@ def item_to_text(item):
     return ' '.join(text)
 
 
-token_pattern = r"(?u)\b[_\w][_\w]+\b"
+token_pattern = r'(?u)\b[_\w][_\w]+\b'
 
 
 def tokenize(text):
