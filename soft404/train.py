@@ -3,6 +3,7 @@ import argparse
 from collections import Counter, defaultdict
 from functools import partial
 import os.path
+import pickle
 from pprint import pprint
 import re
 import multiprocessing
@@ -89,6 +90,8 @@ def get_text_features(in_prefix, data, ngram_max=1, max_features=None):
         # it's ok to train a count vectorizer on all data here
         features = vect.fit_transform(item_to_text(item) for item in data())
         joblib.dump(features, features_filename)
+        with open('{}.vect.pkl'.format(in_prefix), 'wb') as f:
+            pickle.dump(vect, f, protocol=2)
         return features
 
 
