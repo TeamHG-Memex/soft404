@@ -58,7 +58,10 @@ def main():
         eval_clf,
         text_features=text_features,
         numeric_features=numeric_features,
-        ys=ys)
+        ys=ys,
+        show_features=args.show_features,
+        vect_filename=get_vect_filename(args.in_prefix),
+        )
 
     lkf = LabelKFold([item['domain'] for item in meta], n_folds=10)
     with multiprocessing.Pool() as pool:
@@ -90,12 +93,17 @@ def get_text_features(in_prefix, data, ngram_max=1, max_features=None):
         # it's ok to train a count vectorizer on all data here
         features = vect.fit_transform(item_to_text(item) for item in data())
         joblib.dump(features, features_filename)
-        with open('{}.vect.pkl'.format(in_prefix), 'wb') as f:
+        with open(get_vect_filename(in_prefix), 'wb') as f:
             pickle.dump(vect, f, protocol=2)
         return features
 
 
-def eval_clf(arg, text_features, numeric_features, ys):
+def get_vect_filename(in_prefix):
+    return '{}.vect.pkl'.format(in_prefix)
+
+
+def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
+             show_features=False):
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
@@ -103,6 +111,10 @@ def eval_clf(arg, text_features, numeric_features, ys):
     text_features_train = text_features[train_idx]
     train_y = ys[train_idx]
     text_clf.fit(text_features_train, train_y)
+    if show_features and fold_idx == 0:
+        with open(vect_filename, 'rb') as f:
+            vect = pickle.load(f)
+        show_text_clf_features(text_clf, vect)
     text_features_test = text_features[test_idx]
     # Build a numeric classifier on top of text classifier
     with ignore_warnings():
@@ -119,6 +131,26 @@ def eval_clf(arg, text_features, numeric_features, ys):
         'AUC': metrics.roc_auc_score(
             test_y, clf.predict_proba(all_features_test)[:, 1]),
     }
+
+
+def show_text_clf_features(clf, vect, pos_limit=100, neg_limit=20):
+    coef = list(enumerate(clf.coef_[0]))
+    coef.sort(key=lambda x: x[1], reverse=True)
+    print('\n{} non-zero features, {} positive and {} negative:'.format(
+            sum(abs(v) > 0 for _, v in coef),
+            sum(v > 0 for _, v in coef),
+            sum(v < 0 for _, v in coef),
+        ))
+    inverse = {idx: word for word, idx in vect.vocabulary_.items()}
+    print()
+    for idx, c in coef[:pos_limit]:
+        if abs(c) > 0:
+            print('{:.3f} {}'.format(c, inverse[idx]))
+    print('...')
+    for idx, c in coef[-neg_limit:]:
+        if abs(c) > 0:
+            print('{:.3f} {}'.format(c, inverse[idx]))
+    return coef, inverse
 
 
 def reader(filename, flt_indices=None):
