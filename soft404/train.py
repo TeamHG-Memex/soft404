@@ -38,7 +38,7 @@ def main():
     arg('--no-mp', action='store_true', help='Do not use multiprocessing')
     arg('--max-features', type=int, default=50000)
     arg('--ngram-max', type=int, default=2)
-    arg('--n-best-features', type=int, default=1000,
+    arg('--n-best-features', type=int, default=3000,
         help='Re-train using specified number of best features')
     arg('--save', help='Train on all data and save classifier')
     args = parser.parse_args()
