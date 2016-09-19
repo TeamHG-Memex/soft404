@@ -23,6 +23,7 @@ setup(
         'parsel',
         'scikit-learn',
         'scipy',
+        'webstruct',
     ],
     entry_points={
         'console_scripts': [

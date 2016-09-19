@@ -7,6 +7,7 @@ from lxml import etree
 from lxml.html.clean import Cleaner
 import parsel
 import numpy as np
+from webstruct.feature_extraction import HtmlTokenizer
 
 
 _clean_html = Cleaner(
@@ -78,23 +79,25 @@ BLOCK_TAGS = {
 }
 
 
+html_tokenizer = HtmlTokenizer()
+
+
 def get_text_blocks(tree):
+    tokens, _ = html_tokenizer.tokenize_single(tree)
     text_blocks = []
+    prev_parent = None
     current = []
-    tag = ''
-    for node in tree.iter():
-        if node.tag in BLOCK_TAGS:
-            if current:
-                text_blocks.append((tag, ' '.join(current)))
-                current = []
-            tag = node.tag
-        for text in [node.text, node.tail]:
-            if text:
-                text = text.strip()
-                if text:
-                    current.append(text)
-    if current:
-        text_blocks.append((tag, ' '.join(current)))
+    for token in tokens:
+        parent = token.parent
+        while parent.tag not in BLOCK_TAGS:
+            parent = parent.getparent()
+        if prev_parent is not None and prev_parent != parent:
+            text_blocks.append((prev_parent.tag, ' '.join(current)))
+            current = []
+        current.append(token.token)
+        prev_parent = parent
+    if current and prev_parent is not None:
+        text_blocks.append((prev_parent.tag, ' '.join(current)))
     return text_blocks
 
 

@@ -3,16 +3,21 @@ from soft404.utils import get_text_blocks, cleaned_selector, html2text
 
 html = '''\
     <div>
-        <div>one <a>two</a>, <br> three</div>
+        <h2>one <a>two</a>, <br> three</h2>
+        yet more <br/>text
         <h1>another</h1>
+        block
     </div>'''
 
 
 def test_get_text_blocks():
     assert get_text_blocks(cleaned_selector(html).root) == [
-        ('div', 'one two , three'), ('h1', 'another')]
+        ('h2', 'one two three'),
+        ('div', 'yet more text'),
+        ('h1', 'another'),
+        ('div', 'block')]
 
 
 def test_get_text():
-    assert html2text(html) == 'one two, three another'
+    assert html2text(html) == 'one two, three yet more text another block'
 

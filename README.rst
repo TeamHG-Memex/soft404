@@ -9,6 +9,7 @@ Installation
 
 ::
 
+    pip install git+https://github.com/scrapinghub/webstruct.git
     pip install soft404
 
 
