@@ -20,6 +20,7 @@ Usage
     >>> from soft404 import Soft404Classifier
     >>> clf = Soft404Classifier()
     >>> clf.predict('<h1>Page not found</h1>')
+    0.9736860086882132
 
 
 Getting data for training

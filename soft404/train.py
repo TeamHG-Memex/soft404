@@ -156,8 +156,10 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         })
     if save:
         vect = vect or load_vect(vect_filename)
-        import IPython; IPython.embed()
-        # TODO - rebuild vectorizer with current features
+        if n_best_features:
+            inverse = {idx: w for w, idx in vect.vocabulary_.items()}
+            vect.vocabulary_ = {inverse[idx]: i for i, idx in
+                                enumerate(best_feature_indices)}
         Soft404Classifier.save_model(save, vect, text_clf, clf)
     return result_metrics
 

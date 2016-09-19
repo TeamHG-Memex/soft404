@@ -1,6 +1,7 @@
 import os.path
 
 from sklearn.externals import joblib
+from sklearn.feature_extraction.text import CountVectorizer
 
 from .utils import html_to_item, item_to_text, item_numeric_features
 
@@ -8,13 +9,11 @@ from .utils import html_to_item, item_to_text, item_numeric_features
 default_location = os.path.join(os.path.dirname(__file__), 'clf.joblib')
 
 
-# TODO - save classifier without pickle, using only numpy arrays and json?
-
-
 class Soft404Classifier(object):
     def __init__(self, filename=default_location):
-        vect, text_clf, clf = joblib.load(filename)
-        self.vect = vect
+        vect_params, vect_vocab, text_clf, clf = joblib.load(filename)
+        self.vect = CountVectorizer(**vect_params)
+        self.vect.vocabulary_ = vect_vocab
         self.text_clf = text_clf
         self.clf = clf
 
@@ -29,4 +28,7 @@ class Soft404Classifier(object):
 
     @classmethod
     def save_model(cls, filename, vect, text_clf, clf):
-        joblib.dump([vect, text_clf, clf], filename)
+        # TODO - save classifier without pickle, #  using only numpy arrays
+        # and json. clf is the problem here.
+        joblib.dump([vect.get_params(), vect.vocabulary_, text_clf, clf],
+                    filename, protocol=2, compress=3)
