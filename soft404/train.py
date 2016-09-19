@@ -2,6 +2,7 @@
 import argparse
 from collections import Counter, defaultdict
 from functools import partial
+import gzip
 import os.path
 import pickle
 from pprint import pprint
@@ -19,6 +20,10 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn import metrics
 import tqdm
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 from soft404.utils import (
     ignore_warnings, item_to_text, token_pattern, item_numeric_features,
@@ -74,6 +79,7 @@ def main():
         explain_failures=args.explain_failures,
         vect_filename=get_vect_filename(args.in_prefix),
         n_best_features=args.n_best_features,
+        data=data,
         )
 
     if args.save:
@@ -122,7 +128,7 @@ def get_vect_filename(in_prefix):
 
 
 def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
-             show_features=False, explain_failures=False,
+             data, show_features=False, explain_failures=False,
              n_best_features=None, save=None):
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
@@ -166,7 +172,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     if explain_failures and len(test_idx) and fold_idx == 0:
         vect = vect or load_vect(vect_filename)
         explain_clf_failures(clf, text_clf, vect,
-                             text_features, all_features, ys, test_idx)
+                             data, all_features, ys, test_idx)
     if len(test_idx):
         all_features_test = all_features[test_idx]
         result_metrics.update({
@@ -196,11 +202,14 @@ def load_vect(vect_filename):
         return pickle.load(f)
 
 
-def reader(filename, flt_indices=None):
-    with json_lines.open(filename) as f:
-        for idx, item in enumerate(f):
+def reader(filename, flt_indices=None, data_flt_indices=None):
+    with gzip.open(filename, 'rb') as f:
+        data_idx = 0
+        for idx, line in enumerate(f):
             if flt_indices is None or idx in flt_indices:
-                yield item
+                if data_flt_indices is None or data_idx in data_flt_indices:
+                    yield json.loads(line.decode('utf8'))
+                data_idx += 1
 
 
 def get_lang_indices(meta, only_lang):
@@ -225,15 +234,19 @@ def get_numeric_features(in_prefix, data, n_items):
         return features
 
 
-def explain_clf_failures(clf, text_clf, vect,
-                         text_features, all_features, ys, test_idx):
-    text_features = text_features[test_idx]
+def explain_clf_failures(clf, text_clf, vect, data, all_features, ys, test_idx):
     all_features = all_features[test_idx]
     ys = ys[test_idx]
     pred_ys = clf.predict(all_features)
     pred_prob_ys = clf.predict_proba(all_features)[:, 1]
-    false_pos = (pred_ys == True) & (pred_ys != ys)
-    false_neg = (pred_ys == False) & (pred_ys != ys)
+    failures = pred_ys != ys
+    failed_indices = failures.nonzero()[0]
+    failed_docs = {}
+    for idx, doc in enumerate(data(
+            data_flt_indices={test_idx[idx] for idx in failed_indices})):
+        failed_docs[failed_indices[idx]] = doc
+    false_pos = (pred_ys == True) & failures
+    false_neg = (pred_ys == False) & failures
     for name, idxs, reverse in [
             ('False positives (200 classified as 404)', false_pos, True),
             ('False negatives (404 classified as 200)', false_neg, False)]:
@@ -241,7 +254,7 @@ def explain_clf_failures(clf, text_clf, vect,
         for idx in sorted(idxs.nonzero()[0], key=lambda x: pred_prob_ys[x],
                           reverse=reverse)[:10]:
             explanation = explain_prediction(
-                text_clf, vect, text_features[idx].toarray(),
+                text_clf, vect, item_to_text(failed_docs[idx]),
                 class_names=['200', '404'])
             print('text_clf prediction: {:.3f}, clf prediction: {:.3f}\n{}'.format(
                 all_features[idx, 0], pred_prob_ys[idx],
