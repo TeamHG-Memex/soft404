@@ -7,6 +7,9 @@ import pickle
 from pprint import pprint
 import multiprocessing
 
+from eli5.sklearn.explain_weights import (
+    explain_linear_classifier_weights, explain_tree_feature_importance)
+from eli5.formatters import format_as_text
 import json_lines
 import numpy as np
 from sklearn.cross_validation import LabelKFold
@@ -123,7 +126,8 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     vect = None
     if show_features and fold_idx == 0:
         vect = load_vect(vect_filename)
-        show_text_clf_features(text_clf, vect)
+        print(format_as_text(explain_linear_classifier_weights(
+            text_clf, vect, top=(100, 20))))
     result_metrics = {}
     test_y = ys[test_idx]
     if n_best_features:
@@ -177,26 +181,6 @@ def trained_text_clf(text_features, ys, train_idx):
 def load_vect(vect_filename):
     with open(vect_filename, 'rb') as f:
         return pickle.load(f)
-
-
-def show_text_clf_features(clf, vect, pos_limit=100, neg_limit=20):
-    coef = list(enumerate(clf.coef_[0]))
-    coef.sort(key=lambda x: x[1], reverse=True)
-    print('\n{} non-zero features, {} positive and {} negative:'.format(
-            sum(abs(v) > 0 for _, v in coef),
-            sum(v > 0 for _, v in coef),
-            sum(v < 0 for _, v in coef),
-        ))
-    inverse = {idx: word for word, idx in vect.vocabulary_.items()}
-    print()
-    for idx, c in coef[:pos_limit]:
-        if abs(c) > 0:
-            print('{:.3f} {}'.format(c, inverse[idx]))
-    print('...')
-    for idx, c in coef[-neg_limit:]:
-        if abs(c) > 0:
-            print('{:.3f} {}'.format(c, inverse[idx]))
-    return coef, inverse
 
 
 def reader(filename, flt_indices=None):
