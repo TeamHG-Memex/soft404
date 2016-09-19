@@ -18,6 +18,13 @@ def test_get_text_blocks():
         ('div', 'block')]
 
 
+def test_get_text_blocks_body_child():
+    assert get_text_blocks(
+        cleaned_selector('<html><body>foo <br/>bar</body></html>').root) == [
+        ('body', 'foo bar'),
+        ]
+
+
 def test_get_text():
     assert html2text(html) == 'one two, three yet more text another block'
 

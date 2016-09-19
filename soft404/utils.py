@@ -75,7 +75,7 @@ BLOCK_TAGS = {
     'header', 'hgroup', 'hr', 'noscript', 'ol', 'output', 'p', 'pre',
     'section', 'table', 'tfoot', 'ul', 'video',
     # not really block, but makes sense to include
-    'li',
+    'li', 'body',
 }
 
 
