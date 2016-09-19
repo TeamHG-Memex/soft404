@@ -54,6 +54,7 @@ def main():
         flt_indices &= get_lang_indices(meta, args.lang)
         print('Using only data for "{}" language'.format(args.lang))
     meta = [item for idx, item in enumerate(meta) if idx in flt_indices]
+    print_data_summary(meta)
 
     data = partial(reader, filename=args.in_prefix + '.items.jl.gz',
                    flt_indices=flt_indices)
@@ -244,6 +245,14 @@ def explain_clf_failures(clf, text_clf, vect,
             print('text_clf prediction: {:.3f}, clf prediction: {:.3f}\n{}'.format(
                 all_features[idx, 0], pred_prob_ys[idx],
                 format_as_text(explanation)))
+
+
+def print_data_summary(meta):
+    print('{pages} pages, {domains} domains, {true_ratio:.2f} 404 pages'.format(
+        pages=len(meta),
+        domains=len({item['domain'] for item in meta}),
+        true_ratio=sum(item['status'] == 404 for item in meta) / len(meta),
+    ))
 
 
 if __name__ == '__main__':
