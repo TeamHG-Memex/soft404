@@ -143,9 +143,9 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
                     text_clf.predict_proba(text_features[test_idx])[:, 1]),
             })
         coef = sorted(enumerate(text_clf.coef_[0]),
-                      key=lambda x: x[1], reverse=True)
+                      key=lambda x: abs(x[1]), reverse=True)
         best_feature_indices = [
-            idx for idx, weight in coef[:n_best_features] if weight > 0]
+            idx for idx, weight in coef[:n_best_features]]
         result_metrics['selected_features'] = len(best_feature_indices)
         text_features = text_features[:, best_feature_indices]
         text_clf = trained_text_clf(text_features, ys, train_idx)
@@ -184,7 +184,8 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
 
 
 def trained_text_clf(text_features, ys, train_idx):
-    text_clf = SGDClassifier(loss='log', penalty='l1', alpha=0.001)
+    text_clf = SGDClassifier(loss='log', penalty='elasticnet',
+                             alpha=0.0005, l1_ratio=0.3)
     text_features_train = text_features[train_idx]
     text_clf.fit(text_features_train, ys[train_idx])
     return text_clf
