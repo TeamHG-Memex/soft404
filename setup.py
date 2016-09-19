@@ -25,10 +25,6 @@ setup(
         'scipy',
         'webstruct',
     ],
-    entry_points={
-        'console_scripts': [
-        ]
-    },
     long_description=read('README.rst'),
     classifiers=[
         'Development Status :: 3 - Alpha',

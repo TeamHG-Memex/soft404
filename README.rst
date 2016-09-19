@@ -4,6 +4,9 @@ soft404: a classifier for detecting soft 404 pages
 A "soft" 404 page is a page that is served with 200 status,
 but is really a page that says that content is not available.
 
+.. contents::
+
+
 Installation
 ------------
 
@@ -58,3 +61,8 @@ If you are happy with results, save the classifier::
 
     ./soft404/train.py items --save soft404/clf.joblib
 
+
+License
+-------
+
+License is MIT.
