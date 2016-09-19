@@ -24,8 +24,15 @@ Usage
     0.9736860086882132
 
 
+Development
+-----------
+
 Getting data for training
--------------------------
++++++++++++++++++++++++++
+
+Install dev requirements::
+
+    pip install -r requirements_dev.txt
 
 Run the crawler for a while (results will appear in ``pages.jl.gz`` file)::
 
@@ -34,7 +41,7 @@ Run the crawler for a while (results will appear in ``pages.jl.gz`` file)::
 
 
 Training
---------
+++++++++
 
 First, extract text and structure from html::
 
@@ -49,5 +56,5 @@ Vectorizer takes a while to run, but it's result is cached (the filename
 where it is cached will be printed on the next run).
 If you are happy with results, save the classifier::
 
-    ./soft404/train.py items --save clf
+    ./soft404/train.py items --save soft404/clf.joblib
 
