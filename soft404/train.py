@@ -138,7 +138,8 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
                 'F1_text_full': metrics.f1_score(
                     test_y, text_clf.predict(text_features[test_idx])),
                 'AUC_text_full': metrics.roc_auc_score(
-                    test_y, text_clf.predict_proba(text_features[test_idx])[:, 1]),
+                    test_y,
+                    text_clf.predict_proba(text_features[test_idx])[:, 1]),
             })
         coef = sorted(enumerate(text_clf.coef_[0]),
                       key=lambda x: x[1], reverse=True)
@@ -150,6 +151,9 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         inverse = {idx: w for w, idx in vect.vocabulary_.items()}
         vect.vocabulary_ = {inverse[idx]: i for i, idx in
                             enumerate(best_feature_indices)}
+        if show_features and fold_idx == 0:
+            print(format_as_text(
+                explain_weights(text_clf, vect, top=(100, 20))))
     # Build a numeric classifier on top of text classifier
     with ignore_warnings():
         text_proba = text_clf.predict_proba(text_features)[:, 1]
