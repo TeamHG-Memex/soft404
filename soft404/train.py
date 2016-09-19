@@ -15,6 +15,7 @@ from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn import metrics
+import tqdm
 
 from soft404.utils import (
     ignore_warnings, item_to_text, token_pattern, item_numeric_features)
@@ -52,9 +53,9 @@ def main():
     data = partial(reader, filename=args.in_prefix + '.items.jl.gz',
                    flt_indices=flt_indices)
     text_features = get_text_features(
-        args.in_prefix, data,
+        args.in_prefix, data, len(meta),
         ngram_max=args.ngram_max, max_features=args.max_features)
-    numeric_features = get_numeric_features(args.in_prefix, data)
+    numeric_features = get_numeric_features(args.in_prefix, data, len(meta))
     assert text_features.shape[0] == numeric_features.shape[0] == len(meta)
 
     ys = np.array([item['status'] == 404 for item in meta])
@@ -85,7 +86,7 @@ def main():
                       .format(k, np.mean(v), np.std(v) * 2))
 
 
-def get_text_features(in_prefix, data, ngram_max=1, max_features=None):
+def get_text_features(in_prefix, data, n_items, ngram_max=1, max_features=None):
     features_filename = '{}.text_features.joblib'.format(in_prefix)
     if os.path.exists(features_filename):
         print('Loading text features from {}...'
@@ -100,7 +101,9 @@ def get_text_features(in_prefix, data, ngram_max=1, max_features=None):
             binary=True,
         )
         # it's ok to train a count vectorizer on all data here
-        features = vect.fit_transform(item_to_text(item) for item in data())
+        features = vect.fit_transform(
+            tqdm.tqdm((item_to_text(item) for item in data()),
+                      total=n_items))
         joblib.dump(features, features_filename)
         with open(get_vect_filename(in_prefix), 'wb') as f:
             pickle.dump(vect, f, protocol=2)
@@ -210,7 +213,7 @@ def get_lang_indices(meta, only_lang):
     return {idx for idx, lang in langs if lang == only_lang}
 
 
-def get_numeric_features(in_prefix, data):
+def get_numeric_features(in_prefix, data, n_items):
     features_filename = '{}.numeric_features.joblib'.format(in_prefix)
     if os.path.exists(features_filename):
         print('Loading numeric features from {}...'
@@ -218,7 +221,9 @@ def get_numeric_features(in_prefix, data):
         return joblib.load(features_filename)
     else:
         print('Building numeric features...')
-        features = np.array([item_numeric_features(item) for item in data()])
+        features = np.array(list(
+            tqdm.tqdm((item_numeric_features(item) for item in data()),
+                      total=n_items)))
         joblib.dump(features, features_filename)
         return features
 
