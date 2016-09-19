@@ -150,3 +150,9 @@ def item_numeric_features(item):
         np.median(block_lengths) if block_lengths else 0,
         block_lengths[int(0.8 * len(block_lengths))] if block_lengths else 0,
     ]
+
+
+class NumericVect(object):
+    def get_feature_names(self):
+        return ['text_clf', 'n_tokens', 'n_blocks',
+                'block_len_max', 'block_len_med', 'block_len_08']

@@ -7,8 +7,7 @@ import pickle
 from pprint import pprint
 import multiprocessing
 
-from eli5.sklearn.explain_weights import (
-    explain_linear_classifier_weights, explain_tree_feature_importance)
+from eli5.sklearn.explain_weights import explain_weights
 from eli5.formatters import format_as_text
 import json_lines
 import numpy as np
@@ -21,7 +20,8 @@ from sklearn import metrics
 import tqdm
 
 from soft404.utils import (
-    ignore_warnings, item_to_text, token_pattern, item_numeric_features)
+    ignore_warnings, item_to_text, token_pattern, item_numeric_features,
+    NumericVect)
 from soft404.predict import Soft404Classifier
 
 
@@ -126,8 +126,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     vect = None
     if show_features and fold_idx == 0:
         vect = load_vect(vect_filename)
-        print(format_as_text(explain_linear_classifier_weights(
-            text_clf, vect, top=(100, 20))))
+        print(format_as_text(explain_weights(text_clf, vect, top=(100, 20))))
     result_metrics = {}
     test_y = ys[test_idx]
     if n_best_features:
@@ -151,6 +150,8 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     all_features = np.hstack([text_proba.reshape(-1, 1), numeric_features])
     clf = GradientBoostingClassifier()
     clf.fit(all_features[train_idx], ys[train_idx])
+    if show_features and fold_idx == 0:
+        print(format_as_text(explain_weights(clf, NumericVect())))
     if len(test_idx):
         all_features_test = all_features[test_idx]
         result_metrics.update({
