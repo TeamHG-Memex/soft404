@@ -1,4 +1,5 @@
-from soft404.utils import get_text_blocks, cleaned_selector, html2text
+from soft404.utils import (
+    get_text_blocks, cleaned_selector, html2text, html_to_item)
 
 
 html = '''\
@@ -28,3 +29,9 @@ def test_get_text_blocks_body_child():
 def test_get_text():
     assert html2text(html) == 'one two, three yet more text another block'
 
+
+def test_html_to_item():
+    assert html_to_item('<title>a page</title> <h1>hi!</h1>') == {
+        'blocks': [('h1', 'hi !')],
+        'text': 'a page hi!',
+        'title': 'a page'}

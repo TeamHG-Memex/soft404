@@ -113,11 +113,11 @@ def html_to_item(html):
     text = selector_to_text(sel)
     text_item = {
         'text': text,
-        'title': ' '.join(sel.xpath('/html/head/title//text()').extract()),
+        'title': ' '.join(sel.xpath('//title//text()').extract()),
     }
-    body = sel.xpath('/html/body')
-    if body:
-        text_item['blocks'] = get_text_blocks(body[0].root)
+    body = sel.xpath('/html/body') or sel.root
+    text_root = body[0].root if body else sel.root
+    text_item['blocks'] = get_text_blocks(text_root)
     return text_item
 
 
