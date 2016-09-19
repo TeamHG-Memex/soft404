@@ -8,6 +8,7 @@ from pprint import pprint
 import multiprocessing
 
 from eli5.sklearn.explain_weights import explain_weights
+from eli5.sklearn.explain_prediction import explain_prediction
 from eli5.formatters import format_as_text
 import json_lines
 import numpy as np
@@ -32,6 +33,7 @@ def main():
                           '(.items.jl.gz and .meta.jl.gz)')
     arg('--lang', default='en', help='Train only for this language')
     arg('--show-features', action='store_true')
+    arg('--explain-failures', action='store_true')
     arg('--limit', type=int, help='Use only a part of all data')
     arg('--no-mp', action='store_true', help='Do not use multiprocessing')
     arg('--max-features', type=int, default=50000)
@@ -68,6 +70,7 @@ def main():
         numeric_features=numeric_features,
         ys=ys,
         show_features=args.show_features,
+        explain_failures=args.explain_failures,
         vect_filename=get_vect_filename(args.in_prefix),
         n_best_features=args.n_best_features,
         )
@@ -118,14 +121,14 @@ def get_vect_filename(in_prefix):
 
 
 def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
-             show_features=False, n_best_features=None, save=None):
+             show_features=False, explain_failures=False,
+             n_best_features=None, save=None):
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
     text_clf = trained_text_clf(text_features, ys, train_idx)
-    vect = None
+    vect = load_vect(vect_filename)
     if show_features and fold_idx == 0:
-        vect = load_vect(vect_filename)
         print(format_as_text(explain_weights(text_clf, vect, top=(100, 20))))
     result_metrics = {}
     test_y = ys[test_idx]
@@ -144,6 +147,9 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         result_metrics['selected_features'] = len(best_feature_indices)
         text_features = text_features[:, best_feature_indices]
         text_clf = trained_text_clf(text_features, ys, train_idx)
+        inverse = {idx: w for w, idx in vect.vocabulary_.items()}
+        vect.vocabulary_ = {inverse[idx]: i for i, idx in
+                            enumerate(best_feature_indices)}
     # Build a numeric classifier on top of text classifier
     with ignore_warnings():
         text_proba = text_clf.predict_proba(text_features)[:, 1]
@@ -152,6 +158,10 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     clf.fit(all_features[train_idx], ys[train_idx])
     if show_features and fold_idx == 0:
         print(format_as_text(explain_weights(clf, NumericVect())))
+    if explain_failures and len(test_idx) and fold_idx == 0:
+        vect = vect or load_vect(vect_filename)
+        explain_clf_failures(clf, text_clf, vect,
+                             text_features, all_features, ys, test_idx)
     if len(test_idx):
         all_features_test = all_features[test_idx]
         result_metrics.update({
@@ -164,10 +174,6 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         })
     if save:
         vect = vect or load_vect(vect_filename)
-        if n_best_features:
-            inverse = {idx: w for w, idx in vect.vocabulary_.items()}
-            vect.vocabulary_ = {inverse[idx]: i for i, idx in
-                                enumerate(best_feature_indices)}
         Soft404Classifier.save_model(save, vect, text_clf, clf)
     return result_metrics
 
@@ -211,6 +217,29 @@ def get_numeric_features(in_prefix, data, n_items):
                       total=n_items)))
         joblib.dump(features, features_filename)
         return features
+
+
+def explain_clf_failures(clf, text_clf, vect,
+                         text_features, all_features, ys, test_idx):
+    text_features = text_features[test_idx]
+    all_features = all_features[test_idx]
+    ys = ys[test_idx]
+    pred_ys = clf.predict(all_features)
+    pred_prob_ys = clf.predict_proba(all_features)[:, 1]
+    false_pos = (pred_ys == True) & (pred_ys != ys)
+    false_neg = (pred_ys == False) & (pred_ys != ys)
+    for name, idxs, reverse in [
+            ('False positives (200 classified as 404)', false_pos, True),
+            ('False negatives (404 classified as 200)', false_neg, False)]:
+        print('\n{} ({} total):'.format(name, idxs.sum()))
+        for idx in sorted(idxs.nonzero()[0], key=lambda x: pred_prob_ys[x],
+                          reverse=reverse)[:10]:
+            explanation = explain_prediction(
+                text_clf, vect, text_features[idx].toarray(),
+                class_names=['200', '404'])
+            print('text_clf prediction: {:.3f}, clf prediction: {:.3f}\n{}'.format(
+                all_features[idx, 0], pred_prob_ys[idx],
+                format_as_text(explanation)))
 
 
 if __name__ == '__main__':
