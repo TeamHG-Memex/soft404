@@ -18,7 +18,13 @@ Installation
 Usage
 -----
 
-::
+The easiest way is to use the ``soft404.probability`` function::
+
+    >>> import soft404
+    >>> soft404.probability('<h1>Page not found</h1>')
+    0.9736860086882132
+
+You can also create a classifier explicitly::
 
     >>> from soft404 import Soft404Classifier
     >>> clf = Soft404Classifier()

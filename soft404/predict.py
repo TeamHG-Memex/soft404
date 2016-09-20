@@ -7,6 +7,7 @@ from .utils import html_to_item, item_to_text, item_numeric_features
 
 
 default_location = os.path.join(os.path.dirname(__file__), 'clf.joblib')
+default_classifier = None
 
 
 class Soft404Classifier(object):
@@ -32,3 +33,12 @@ class Soft404Classifier(object):
         # and json. clf is the problem here.
         joblib.dump([vect.get_params(), vect.vocabulary_, text_clf, clf],
                     filename, protocol=2, compress=3)
+
+
+def probability(html):
+    """ Return probability of the page being a 404 page.
+    """
+    global default_classifier
+    if default_classifier is None:
+        default_classifier = Soft404Classifier()
+    return default_classifier.predict(html)

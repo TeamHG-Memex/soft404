@@ -1,1 +1,1 @@
-from .predict import Soft404Classifier
+from .predict import Soft404Classifier, probability
