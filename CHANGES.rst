@@ -3,6 +3,11 @@ Changes
 
 .. contents::
 
+0.1.2 (2016-12-26)
+------------------
+
+- soft404.probability function for prediction with default classifier
+
 
 0.1.1 (2016-09-20)
 ------------------
