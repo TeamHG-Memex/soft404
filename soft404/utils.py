@@ -7,7 +7,7 @@ from lxml import etree
 from lxml.html.clean import Cleaner
 import parsel
 import numpy as np
-from webstruct.feature_extraction import HtmlTokenizer
+from webstruct.html_tokenizer import HtmlTokenizer
 
 
 _clean_html = Cleaner(

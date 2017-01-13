@@ -23,7 +23,7 @@ setup(
         'parsel',
         'scikit-learn',
         'scipy',
-        'webstruct>=0.3',
+        'webstruct>=0.4',
     ],
     long_description=read('README.rst'),
     classifiers=[
