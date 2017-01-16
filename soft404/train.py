@@ -16,7 +16,7 @@ import numpy as np
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.externals import joblib
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn import metrics
@@ -194,7 +194,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
 def trained_text_clf(text_features, ys, train_idx):
     text_clf = SGDClassifier(loss='log', penalty='elasticnet',
                              alpha=0.0005, l1_ratio=0.3)
-    text_pipeline = make_pipeline(text_clf)
+    text_pipeline = make_pipeline(TfidfTransformer(), text_clf)
     text_pipeline.fit(text_features[train_idx], ys[train_idx])
     return text_pipeline, text_clf
 
