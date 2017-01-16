@@ -4,6 +4,7 @@ branches:
     only:
         - master
         - /^\d\.\d+$/
+        
 
 install:
     - pip install -U pip tox codecov
