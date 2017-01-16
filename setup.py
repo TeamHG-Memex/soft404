@@ -21,7 +21,7 @@ setup(
         'lxml',
         'numpy',
         'parsel',
-        'scikit-learn',
+        'scikit-learn>=0.18',
         'scipy',
         'webstruct>=0.4',
     ],

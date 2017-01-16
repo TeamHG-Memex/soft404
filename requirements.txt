@@ -1,8 +1,8 @@
 six
 langdetect==1.0.6
 lxml==3.6.4
-numpy==1.11.1
+numpy==1.12.0
 parsel==1.1.0
-scikit-learn==0.17.1
+scikit-learn==0.18.1
 scipy==0.18.1
 webstruct==0.4.1
