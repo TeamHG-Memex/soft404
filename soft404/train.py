@@ -18,6 +18,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import SGDClassifier
+from sklearn.pipeline import make_pipeline
 from sklearn import metrics
 import tqdm
 try:
@@ -134,7 +135,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
-    text_clf = trained_text_clf(text_features, ys, train_idx)
+    text_pipeline, text_clf = trained_text_clf(text_features, ys, train_idx)
     vect = load_vect(vect_filename)
     if show_features and fold_idx == 0:
         print(format_as_text(explain_weights(text_clf, vect, top=(100, 20))))
@@ -142,12 +143,12 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     test_y = ys[test_idx]
     if n_best_features:
         if len(test_idx):
+            pred_y = text_pipeline.predict_proba(text_features[test_idx])[:, 1]
             result_metrics.update({
-                'F1_text_full': metrics.f1_score(
-                    test_y, text_clf.predict(text_features[test_idx])),
-                'AUC_text_full': metrics.roc_auc_score(
-                    test_y,
-                    text_clf.predict_proba(text_features[test_idx])[:, 1]),
+                'PR AUC text (all features)':
+                    metrics.average_precision_score(test_y, pred_y),
+                'ROC AUC text (all features)':
+                    metrics.roc_auc_score(test_y, pred_y),
             })
         coef = sorted(enumerate(text_clf.coef_[0]),
                       key=lambda x: abs(x[1]), reverse=True)
@@ -155,7 +156,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
             idx for idx, weight in coef[:n_best_features]]
         result_metrics['selected_features'] = len(best_feature_indices)
         text_features = text_features[:, best_feature_indices]
-        text_clf = trained_text_clf(text_features, ys, train_idx)
+        text_pipeline, text_clf = trained_text_clf(text_features, ys, train_idx)
         inverse = {idx: w for w, idx in vect.vocabulary_.items()}
         vect.vocabulary_ = {inverse[idx]: i for i, idx in
                             enumerate(best_feature_indices)}
@@ -164,7 +165,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
                 explain_weights(text_clf, vect, top=(100, 20))))
     # Build a numeric classifier on top of text classifier
     with ignore_warnings():
-        text_proba = text_clf.predict_proba(text_features)[:, 1]
+        text_proba = text_pipeline.predict_proba(text_features)[:, 1]
     all_features = np.hstack([text_proba.reshape(-1, 1), numeric_features])
     clf = GradientBoostingClassifier()
     clf.fit(all_features[train_idx], ys[train_idx])
@@ -176,26 +177,26 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
                              data, all_features, ys, test_idx)
     if len(test_idx):
         all_features_test = all_features[test_idx]
+        pred_y = clf.predict_proba(all_features_test)[:, 1]
         result_metrics.update({
-            'F1_text': metrics.f1_score(
-                test_y, text_clf.predict(text_features[test_idx])),
-            'AUC_text': metrics.roc_auc_score(test_y, text_proba[test_idx]),
-            'F1': metrics.f1_score(test_y, clf.predict(all_features_test)),
-            'AUC': metrics.roc_auc_score(
-                test_y, clf.predict_proba(all_features_test)[:, 1]),
+            'PR AUC text':
+                metrics.average_precision_score(test_y, text_proba[test_idx]),
+            'ROC AUC text': metrics.roc_auc_score(test_y, text_proba[test_idx]),
+            'PR AUC': metrics.average_precision_score(test_y, pred_y),
+            'ROC AUC': metrics.roc_auc_score(test_y, pred_y),
         })
     if save:
         vect = vect or load_vect(vect_filename)
-        Soft404Classifier.save_model(save, vect, text_clf, clf)
+        Soft404Classifier.save_model(save, vect, text_pipeline, clf)
     return result_metrics
 
 
 def trained_text_clf(text_features, ys, train_idx):
     text_clf = SGDClassifier(loss='log', penalty='elasticnet',
                              alpha=0.0005, l1_ratio=0.3)
-    text_features_train = text_features[train_idx]
-    text_clf.fit(text_features_train, ys[train_idx])
-    return text_clf
+    text_pipeline = make_pipeline(text_clf)
+    text_pipeline.fit(text_features[train_idx], ys[train_idx])
+    return text_pipeline, text_clf
 
 
 def load_vect(vect_filename):
