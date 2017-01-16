@@ -13,13 +13,13 @@ from eli5.sklearn.explain_prediction import explain_prediction
 from eli5.formatters import format_as_text
 import json_lines
 import numpy as np
-from sklearn.model_selection import GroupShuffleSplit
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn import metrics
+from sklearn.model_selection import GroupShuffleSplit, cross_val_predict
 import tqdm
 try:
     import ujson as json
@@ -131,16 +131,19 @@ def get_vect_filename(in_prefix):
 def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
              data, show_features=False, explain_failures=False,
              n_best_features=None, save=None):
+
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
-    text_pipeline, text_clf = trained_text_clf(text_features, ys, train_idx)
+    text_pipeline, text_clf = make_text_pipeline()
+    text_pipeline.fit(text_features[train_idx], ys[train_idx])
     vect = load_vect(vect_filename)
     if show_features and fold_idx == 0:
         print(format_as_text(explain_weights(text_clf, vect, top=(100, 20))))
     result_metrics = {}
     test_y = ys[test_idx]
     if n_best_features:
+
         if len(test_idx):
             pred_y = text_pipeline.predict_proba(text_features[test_idx])[:, 1]
             result_metrics.update({
@@ -155,31 +158,42 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
             idx for idx, weight in coef[:n_best_features]]
         result_metrics['selected_features'] = len(best_feature_indices)
         text_features = text_features[:, best_feature_indices]
-        text_pipeline, text_clf = trained_text_clf(text_features, ys, train_idx)
+        text_pipeline, text_clf = make_text_pipeline()
+        text_pipeline.fit(text_features[train_idx], ys[train_idx])
         inverse = {idx: w for w, idx in vect.vocabulary_.items()}
         vect.vocabulary_ = {inverse[idx]: i for i, idx in
                             enumerate(best_feature_indices)}
         if show_features and fold_idx == 0:
             print(format_as_text(
                 explain_weights(text_clf, vect, top=(100, 20))))
+
     # Build a numeric classifier on top of text classifier
-    text_proba = text_pipeline.predict_proba(text_features)[:, 1]
-    all_features = np.hstack([text_proba.reshape(-1, 1), numeric_features])
+    text_proba_train = cross_val_predict(
+        make_text_pipeline()[0], text_features[train_idx], ys[train_idx])
+    full_features_train = np.hstack(
+        [text_proba_train.reshape(-1, 1), numeric_features[train_idx]])
     clf = GradientBoostingClassifier()
-    clf.fit(all_features[train_idx], ys[train_idx])
+    clf.fit(full_features_train, ys[train_idx])
     if show_features and fold_idx == 0:
         print(format_as_text(explain_weights(clf, NumericVect())))
-    if explain_failures and len(test_idx) and fold_idx == 0:
-        vect = vect or load_vect(vect_filename)
-        explain_clf_failures(clf, text_pipeline, vect,
-                             data, all_features, ys, test_idx)
+
     if len(test_idx):
-        all_features_test = all_features[test_idx]
-        pred_y = clf.predict_proba(all_features_test)[:, 1]
+        text_proba_test = \
+            text_pipeline.predict_proba(text_features[test_idx])[:, 1]
+        full_features_test = np.hstack(
+            [text_proba_test.reshape(-1, 1), numeric_features[test_idx]])
+
+        if explain_failures and fold_idx == 0:
+            vect = vect or load_vect(vect_filename)
+            explain_clf_failures(
+                clf, text_pipeline, vect,
+                data, full_features_test, ys[test_idx], test_idx)
+
+        pred_y = clf.predict_proba(full_features_test)[:, 1]
         result_metrics.update({
             'PR AUC text':
-                metrics.average_precision_score(test_y, text_proba[test_idx]),
-            'ROC AUC text': metrics.roc_auc_score(test_y, text_proba[test_idx]),
+                metrics.average_precision_score(test_y, text_proba_test),
+            'ROC AUC text': metrics.roc_auc_score(test_y, text_proba_test),
             'PR AUC': metrics.average_precision_score(test_y, pred_y),
             'ROC AUC': metrics.roc_auc_score(test_y, pred_y),
         })
@@ -189,12 +203,10 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
     return result_metrics
 
 
-def trained_text_clf(text_features, ys, train_idx):
+def make_text_pipeline():
     text_clf = SGDClassifier(loss='log', penalty='elasticnet',
                              alpha=0.0005, l1_ratio=0.3)
-    text_pipeline = make_pipeline(TfidfTransformer(), text_clf)
-    text_pipeline.fit(text_features[train_idx], ys[train_idx])
-    return text_pipeline, text_clf
+    return make_pipeline(TfidfTransformer(), text_clf), text_clf
 
 
 def load_vect(vect_filename):
@@ -234,11 +246,10 @@ def get_numeric_features(in_prefix, data, n_items):
         return features
 
 
-def explain_clf_failures(clf, text_clf, vect, data, all_features, ys, test_idx):
-    all_features = all_features[test_idx]
-    ys = ys[test_idx]
-    pred_ys = clf.predict(all_features)
-    pred_prob_ys = clf.predict_proba(all_features)[:, 1]
+def explain_clf_failures(
+        clf, text_clf, vect, data, full_features, ys, test_idx):
+    pred_ys = clf.predict(full_features)
+    pred_prob_ys = clf.predict_proba(full_features)[:, 1]
     failures = pred_ys != ys
     failed_indices = failures.nonzero()[0]
     failed_docs = {}
@@ -257,7 +268,7 @@ def explain_clf_failures(clf, text_clf, vect, data, all_features, ys, test_idx):
                 text_clf, vect, item_to_text(failed_docs[idx]),
                 class_names=['200', '404'])
             print('text_clf prediction: {:.3f}, clf prediction: {:.3f}\n{}'.format(
-                all_features[idx, 0], pred_prob_ys[idx],
+                full_features[idx, 0], pred_prob_ys[idx],
                 format_as_text(explanation)))
 
 
