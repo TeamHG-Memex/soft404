@@ -1,0 +1,18 @@
+language: python
+sudo: false
+branches:
+    only:
+        - master
+        - /^\d\.\d+$/
+
+install:
+    - pip install -U pip tox codecov
+
+script: tox
+
+after_success:
+    - codecov
+
+cache:
+    directories:
+        - $HOME/.cache/pip
