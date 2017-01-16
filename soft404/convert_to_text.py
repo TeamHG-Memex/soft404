@@ -38,14 +38,14 @@ def get_lang(text):
         return ''
 
 
-def main():
+def main(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('infile', help='Pages in .jl.gz')
     parser.add_argument(
         'out_prefix',
         help='Output prefix (two files are written: one with'
              'full data and one with meta: status, url, domain, lang)')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     with json_lines.open(args.infile, broken=True) as f:
         items_file = gzip.open(args.out_prefix + '.items.jl.gz', 'wt')
