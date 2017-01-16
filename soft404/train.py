@@ -31,7 +31,7 @@ from soft404.utils import (
 from soft404.predict import Soft404Classifier
 
 
-def main():
+def main(args=None):
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
     arg('in_prefix', help='Prefix of input filenames, ending with '
@@ -46,7 +46,7 @@ def main():
     arg('--n-best-features', type=int, default=3000,
         help='Re-train using specified number of best features')
     arg('--save', help='Train on all data and save classifier')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     with json_lines.open(args.in_prefix + '.meta.jl.gz') as f:
         meta = list(f)
