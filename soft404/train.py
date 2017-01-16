@@ -171,7 +171,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         print(format_as_text(explain_weights(clf, NumericVect())))
     if explain_failures and len(test_idx) and fold_idx == 0:
         vect = vect or load_vect(vect_filename)
-        explain_clf_failures(clf, text_clf, vect,
+        explain_clf_failures(clf, text_pipeline, vect,
                              data, all_features, ys, test_idx)
     if len(test_idx):
         all_features_test = all_features[test_idx]
