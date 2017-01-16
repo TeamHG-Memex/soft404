@@ -27,8 +27,7 @@ except ImportError:
     import json
 
 from soft404.utils import (
-    ignore_warnings, item_to_text, token_pattern, item_numeric_features,
-    NumericVect)
+    item_to_text, token_pattern, item_numeric_features, NumericVect)
 from soft404.predict import Soft404Classifier
 
 
@@ -164,8 +163,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
             print(format_as_text(
                 explain_weights(text_clf, vect, top=(100, 20))))
     # Build a numeric classifier on top of text classifier
-    with ignore_warnings():
-        text_proba = text_pipeline.predict_proba(text_features)[:, 1]
+    text_proba = text_pipeline.predict_proba(text_features)[:, 1]
     all_features = np.hstack([text_proba.reshape(-1, 1), numeric_features])
     clf = GradientBoostingClassifier()
     clf.fit(all_features[train_idx], ys[train_idx])

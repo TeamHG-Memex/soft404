@@ -1,6 +1,4 @@
-import contextlib
 import re
-import warnings
 
 import lxml
 from lxml import etree
@@ -99,13 +97,6 @@ def get_text_blocks(tree):
     if current and prev_parent is not None:
         text_blocks.append((prev_parent.tag, ' '.join(current)))
     return text_blocks
-
-
-@contextlib.contextmanager
-def ignore_warnings():
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        yield
 
 
 def html_to_item(html):
