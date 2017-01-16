@@ -13,7 +13,7 @@ from eli5.sklearn.explain_prediction import explain_prediction
 from eli5.formatters import format_as_text
 import json_lines
 import numpy as np
-from sklearn.cross_validation import LabelKFold
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer
@@ -85,12 +85,13 @@ def main(args=None):
     if args.save:
         _eval_clf((0, (np.array(range(len(meta))), [])), save=args.save)
     else:
-        lkf = LabelKFold([item['domain'] for item in meta], n_folds=10)
+        folds = GroupShuffleSplit(n_splits=10).split(
+            meta, groups=[item['domain'] for item in meta])
         with multiprocessing.Pool() as pool:
             all_metrics = defaultdict(list)
             print('Training and evaluating...')
             _map = map if args.no_mp else pool.imap_unordered
-            for eval_metrics in _map(_eval_clf, enumerate(lkf)):
+            for eval_metrics in _map(_eval_clf, enumerate(folds)):
                 for k, v in eval_metrics.items():
                     all_metrics[k].append(v)
             print()
