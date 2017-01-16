@@ -1,6 +1,18 @@
 soft404: a classifier for detecting soft 404 pages
 ==================================================
 
+.. image:: https://img.shields.io/pypi/v/soft404.svg
+   :target: https://pypi.python.org/pypi/soft404
+   :alt: PyPI Version
+
+.. image:: https://img.shields.io/travis/TeamHG-Memex/soft404/master.svg
+   :target: http://travis-ci.org/TeamHG-Memex/soft404
+   :alt: Build Status
+
+.. image:: http://codecov.io/github/TeamHG-Memex/soft404/coverage.svg?branch=master
+   :target: http://codecov.io/github/TeamHG-Memex/soft404?branch=master
+   :alt: Code Coverage
+
 A "soft" 404 page is a page that is served with 200 status,
 but is really a page that says that content is not available.
 
