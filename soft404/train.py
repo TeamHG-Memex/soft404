@@ -157,7 +157,7 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         coef = sorted(enumerate(text_clf.coef_[0]),
                       key=lambda x: abs(x[1]), reverse=True)
         best_feature_indices = [
-            idx for idx, weight in coef[:n_best_features]]
+            idx for idx, weight in coef[:n_best_features] if weight != 0]
         result_metrics['selected_features'] = len(best_feature_indices)
         text_features = text_features[:, best_feature_indices]
         text_pipeline, text_clf = make_text_pipeline()
