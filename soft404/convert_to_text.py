@@ -19,6 +19,7 @@ def convert_item(item):
             'url': item['url'],
             'domain': get_domain(item['url']),
             'status': item['status'],
+            'mangled_url': item['mangled_url'],
             'lang': get_lang(text_item['text']),
         })
     except Exception:
@@ -53,14 +54,15 @@ def main(args=None):
         n_errors = 0
         with multiprocessing.Pool() as pool:
             for text_item in pool.imap_unordered(
-                    convert_item, f, chunksize=500):
+                    convert_item, f, chunksize=100):
                 if text_item is None:
                     n_errors += 1
                 else:
                     items_file.write(json.dumps(text_item))
                     items_file.write('\n')
-                    meta_file.write(json.dumps({key: text_item[key] for key in [
-                        'url', 'domain', 'lang', 'status']}))
+                    meta_file.write(json.dumps(
+                        {key: text_item[key] for key in [
+                            'url', 'domain', 'lang', 'status', 'mangled_url']}))
                     meta_file.write('\n')
 
     print('Number of errors: {}'.format(n_errors))

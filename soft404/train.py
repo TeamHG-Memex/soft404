@@ -53,8 +53,10 @@ def main(args=None):
     if args.limit:
         meta = meta[:args.limit]
 
+    # Do not include real soft404 candidates
     flt_indices = {idx for idx, item in enumerate(meta)
-                   if item['status'] in {200, 404}}
+                   if (item['status'] == 200 and not item['mangled_url'] or
+                       item['status'] == 404 and item['mangled_url'])}
     if args.lang:
         flt_indices &= get_lang_indices(meta, args.lang)
         print('Using only data for "{}" language'.format(args.lang))
