@@ -72,7 +72,7 @@ def main(args=None):
         text_features=text_features,
         ys=ys,
         show_features=args.show_features,
-        vect_filename=get_vect_filename(args.in_prefix),
+        vec_filename=get_vec_filename(args.in_prefix),
         n_best_features=args.n_best_features,
         )
 
@@ -102,27 +102,27 @@ def get_text_features(in_prefix, data, n_items, ngram_max=1, max_features=None):
         return joblib.load(features_filename)
     else:
         print('Training vectorizer...')
-        vect = CountVectorizer(
+        vec = CountVectorizer(
             ngram_range=(1, ngram_max),
             max_features=max_features,
             token_pattern=token_pattern,
             binary=True,
         )
         # it's ok to train a count vectorizer on all data here
-        features = vect.fit_transform(
+        features = vec.fit_transform(
             tqdm.tqdm((item_to_text(item) for item in data()),
                       total=n_items))
         joblib.dump(features, features_filename)
-        with open(get_vect_filename(in_prefix), 'wb') as f:
-            pickle.dump(vect, f, protocol=2)
+        with open(get_vec_filename(in_prefix), 'wb') as f:
+            pickle.dump(vec, f, protocol=2)
         return features
 
 
-def get_vect_filename(in_prefix):
-    return '{}.vect.pkl'.format(in_prefix)
+def get_vec_filename(in_prefix):
+    return '{}.vec.pkl'.format(in_prefix)
 
 
-def eval_clf(arg, text_features, ys, vect_filename,
+def eval_clf(arg, text_features, ys, vec_filename,
              show_features=False,
              n_best_features=None, save=None):
 
@@ -131,9 +131,9 @@ def eval_clf(arg, text_features, ys, vect_filename,
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
     text_pipeline, text_clf = make_text_pipeline()
     text_pipeline.fit(text_features[train_idx], ys[train_idx])
-    vect = load_vect(vect_filename)
+    vec = load_vec(vec_filename)
     if show_features and fold_idx == 0:
-        print(format_as_text(explain_weights(text_clf, vect, top=(100, 20))))
+        print(format_as_text(explain_weights(text_clf, vec, top=(100, 20))))
     result_metrics = {}
     test_y = ys[test_idx]
     if n_best_features:
@@ -154,13 +154,13 @@ def eval_clf(arg, text_features, ys, vect_filename,
         text_features = text_features[:, best_feature_indices]
         text_pipeline, text_clf = make_text_pipeline()
         text_pipeline.fit(text_features[train_idx], ys[train_idx])
-        inverse = {idx: w for w, idx in vect.vocabulary_.items()}
-        vect.vocabulary_ = {inverse[idx]: i for i, idx in
+        inverse = {idx: w for w, idx in vec.vocabulary_.items()}
+        vec.vocabulary_ = {inverse[idx]: i for i, idx in
                             enumerate(best_feature_indices)}
-        vect.stop_words_ = None
+        vec.stop_words_ = None
         if show_features and fold_idx == 0:
             print(format_as_text(
-                explain_weights(text_clf, vect, top=(100, 20))))
+                explain_weights(text_clf, vec, top=(100, 20))))
 
     if len(test_idx):
         text_features_test = text_features[test_idx]
@@ -173,7 +173,7 @@ def eval_clf(arg, text_features, ys, vect_filename,
         pipeline = Pipeline([
             ('html_to_item', _function_transformer(html_to_item)),
             ('item_to_text', _function_transformer(item_to_text)),
-            ('vec', vect),
+            ('vec', vec),
             ] + text_pipeline.steps)
         Soft404Classifier.save_model(save, pipeline)
     return result_metrics
@@ -187,8 +187,8 @@ def make_text_pipeline():
         ('clf', text_clf)]), text_clf
 
 
-def load_vect(vect_filename):
-    with open(vect_filename, 'rb') as f:
+def load_vec(vec_filename):
+    with open(vec_filename, 'rb') as f:
         return pickle.load(f)
 
 
