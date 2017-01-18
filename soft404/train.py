@@ -9,26 +9,23 @@ from pprint import pprint
 import multiprocessing
 
 from eli5.sklearn.explain_weights import explain_weights
-from eli5.sklearn.explain_prediction import explain_prediction
 from eli5.formatters import format_as_text
 import json_lines
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.linear_model import SGDClassifier
-from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import Pipeline
 from sklearn import metrics
-from sklearn.model_selection import GroupShuffleSplit, cross_val_predict
+from sklearn.model_selection import GroupShuffleSplit
 import tqdm
 try:
     import ujson as json
 except ImportError:
     import json
 
-from soft404.utils import (
-    item_to_text, token_pattern, item_numeric_features, NumericVect)
-from soft404.predict import Soft404Classifier
+from soft404.utils import html_to_item, item_to_text, token_pattern
+from soft404.predict import Soft404Classifier, _function_transformer
 
 
 def main(args=None):
@@ -38,7 +35,6 @@ def main(args=None):
                           '(.items.jl.gz and .meta.jl.gz)')
     arg('--lang', default='en', help='Train only for this language')
     arg('--show-features', action='store_true')
-    arg('--explain-failures', action='store_true')
     arg('--limit', type=int, help='Use only a part of all data')
     arg('--no-mp', action='store_true', help='Do not use multiprocessing')
     arg('--max-features', type=int, default=50000)
@@ -68,20 +64,16 @@ def main(args=None):
     text_features = get_text_features(
         args.in_prefix, data, len(meta),
         ngram_max=args.ngram_max, max_features=args.max_features)
-    numeric_features = get_numeric_features(args.in_prefix, data, len(meta))
-    assert text_features.shape[0] == numeric_features.shape[0] == len(meta)
+    assert text_features.shape[0] == len(meta)
 
     ys = np.array([item['status'] == 404 for item in meta])
     _eval_clf = partial(
         eval_clf,
         text_features=text_features,
-        numeric_features=numeric_features,
         ys=ys,
         show_features=args.show_features,
-        explain_failures=args.explain_failures,
         vect_filename=get_vect_filename(args.in_prefix),
         n_best_features=args.n_best_features,
-        data=data,
         )
 
     if args.save:
@@ -130,8 +122,8 @@ def get_vect_filename(in_prefix):
     return '{}.vect.pkl'.format(in_prefix)
 
 
-def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
-             data, show_features=False, explain_failures=False,
+def eval_clf(arg, text_features, ys, vect_filename,
+             show_features=False,
              n_best_features=None, save=None):
 
     fold_idx, (train_idx, test_idx) = arg
@@ -149,9 +141,9 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         if len(test_idx):
             pred_y = text_pipeline.predict_proba(text_features[test_idx])[:, 1]
             result_metrics.update({
-                'PR AUC text (all features)':
+                'PR AUC (all text features)':
                     metrics.average_precision_score(test_y, pred_y),
-                'ROC AUC text (all features)':
+                'ROC AUC (all text features)':
                     metrics.roc_auc_score(test_y, pred_y),
             })
         coef = sorted(enumerate(text_clf.coef_[0]),
@@ -165,50 +157,34 @@ def eval_clf(arg, text_features, numeric_features, ys, vect_filename,
         inverse = {idx: w for w, idx in vect.vocabulary_.items()}
         vect.vocabulary_ = {inverse[idx]: i for i, idx in
                             enumerate(best_feature_indices)}
+        vect.stop_words_ = None
         if show_features and fold_idx == 0:
             print(format_as_text(
                 explain_weights(text_clf, vect, top=(100, 20))))
 
-    # Build a numeric classifier on top of text classifier
-    text_proba_train = cross_val_predict(
-        make_text_pipeline()[0], text_features[train_idx], ys[train_idx])
-    full_features_train = np.hstack(
-        [text_proba_train.reshape(-1, 1), numeric_features[train_idx]])
-    clf = GradientBoostingClassifier()
-    clf.fit(full_features_train, ys[train_idx])
-    if show_features and fold_idx == 0:
-        print(format_as_text(explain_weights(clf, NumericVect())))
-
     if len(test_idx):
-        text_proba_test = \
-            text_pipeline.predict_proba(text_features[test_idx])[:, 1]
-        full_features_test = np.hstack(
-            [text_proba_test.reshape(-1, 1), numeric_features[test_idx]])
-
-        if explain_failures and fold_idx == 0:
-            vect = vect or load_vect(vect_filename)
-            explain_clf_failures(
-                clf, text_pipeline, vect,
-                data, full_features_test, ys[test_idx], test_idx)
-
-        pred_y = clf.predict_proba(full_features_test)[:, 1]
+        text_features_test = text_features[test_idx]
+        pred_y = text_pipeline.predict_proba(text_features_test)[:, 1]
         result_metrics.update({
-            'PR AUC text':
-                metrics.average_precision_score(test_y, text_proba_test),
-            'ROC AUC text': metrics.roc_auc_score(test_y, text_proba_test),
             'PR AUC': metrics.average_precision_score(test_y, pred_y),
             'ROC AUC': metrics.roc_auc_score(test_y, pred_y),
         })
     if save:
-        vect = vect or load_vect(vect_filename)
-        Soft404Classifier.save_model(save, vect, text_pipeline, clf)
+        pipeline = Pipeline([
+            ('html_to_item', _function_transformer(html_to_item)),
+            ('item_to_text', _function_transformer(item_to_text)),
+            ('vec', vect),
+            ] + text_pipeline.steps)
+        Soft404Classifier.save_model(save, pipeline)
     return result_metrics
 
 
 def make_text_pipeline():
     text_clf = SGDClassifier(loss='log', penalty='elasticnet',
                              alpha=0.0005, l1_ratio=0.3)
-    return make_pipeline(TfidfTransformer(), text_clf), text_clf
+    return Pipeline([
+        ('tf-idf', TfidfTransformer()),
+        ('clf', text_clf)]), text_clf
 
 
 def load_vect(vect_filename):
@@ -231,47 +207,6 @@ def get_lang_indices(meta, only_lang):
     print('\nMost common languages in data:')
     pprint(Counter(lang for _, lang in langs).most_common(10))
     return {idx for idx, lang in langs if lang == only_lang}
-
-
-def get_numeric_features(in_prefix, data, n_items):
-    features_filename = '{}.numeric_features.joblib'.format(in_prefix)
-    if os.path.exists(features_filename):
-        print('Loading numeric features from {}...'
-              .format(features_filename))
-        return joblib.load(features_filename)
-    else:
-        print('Building numeric features...')
-        features = np.array(list(
-            tqdm.tqdm((item_numeric_features(item) for item in data()),
-                      total=n_items)))
-        joblib.dump(features, features_filename)
-        return features
-
-
-def explain_clf_failures(
-        clf, text_clf, vect, data, full_features, ys, test_idx):
-    pred_ys = clf.predict(full_features)
-    pred_prob_ys = clf.predict_proba(full_features)[:, 1]
-    failures = pred_ys != ys
-    failed_indices = failures.nonzero()[0]
-    failed_docs = {}
-    for idx, doc in enumerate(data(
-            data_flt_indices={test_idx[idx] for idx in failed_indices})):
-        failed_docs[failed_indices[idx]] = doc
-    false_pos = (pred_ys == True) & failures
-    false_neg = (pred_ys == False) & failures
-    for name, idxs, reverse in [
-            ('False positives (200 classified as 404)', false_pos, True),
-            ('False negatives (404 classified as 200)', false_neg, False)]:
-        print('\n{} ({} total):'.format(name, idxs.sum()))
-        for idx in sorted(idxs.nonzero()[0], key=lambda x: pred_prob_ys[x],
-                          reverse=reverse)[:10]:
-            explanation = explain_prediction(
-                text_clf, vect, item_to_text(failed_docs[idx]),
-                class_names=['200', '404'])
-            print('text_clf prediction: {:.3f}, clf prediction: {:.3f}\n{}'.format(
-                full_features[idx, 0], pred_prob_ys[idx],
-                format_as_text(explanation)))
 
 
 def print_data_summary(meta):

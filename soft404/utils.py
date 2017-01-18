@@ -65,24 +65,3 @@ token_pattern = r'(?u)\b[_\w][_\w]+\b'
 
 def tokenize(text):
     return re.findall(token_pattern, text, re.U)
-
-
-def item_numeric_features(item):
-    if item.get('blocks'):
-        block_lengths = sorted(
-            len(tokenize(block)) for _, block in item['blocks'])
-    else:
-        block_lengths = None
-    return [
-        len(tokenize(item['text'])),
-        len(item['blocks']) if 'blocks' in item else 0,
-        np.max(block_lengths) if block_lengths else 0,
-        np.median(block_lengths) if block_lengths else 0,
-        block_lengths[int(0.8 * len(block_lengths))] if block_lengths else 0,
-    ]
-
-
-class NumericVect(object):
-    def get_feature_names(self):
-        return ['text_clf', 'n_tokens', 'n_blocks',
-                'block_len_max', 'block_len_med', 'block_len_08']

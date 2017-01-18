@@ -4,7 +4,7 @@ from soft404 import Soft404Classifier, probability
 def test_predict_classifier():
     clf = Soft404Classifier()
     assert clf.predict('<h1>page not found: 404 error</h1>') > 0.9
-    assert clf.predict('<h1>hi here!</h1> just a page') < 0.3
+    assert clf.predict('<h1>hi here!</h1> just a page') < 0.5
 
 
 def test_predict_function():
