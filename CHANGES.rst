@@ -3,6 +3,14 @@ Changes
 
 .. contents::
 
+0.2.0 (2017-01-19)
+------------------
+
+- Python 2.7 support for prediction
+- require (and work on) scikit-learn 0.18+
+- improve model accuracy, remove numeric features
+
+
 0.1.2 (2016-12-26)
 ------------------
 
