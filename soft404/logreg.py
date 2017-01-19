@@ -3,24 +3,28 @@ import tensorflow as tf
 
 
 class LogisticRegression(object):
-    def __init__(self, bias, reg_alpha=0.1, learning_rate=0.1, n_epoch=50):
+    def __init__(self, bias, reg_l2=0.0001, reg_l1=0.0,
+                 learning_rate=0.1, n_epoch=50):
+        # TODO - set learning_rate like in SGDClassifier
         self.bias = bias
-        self.reg_alpha = reg_alpha
+        self.reg_l2 = reg_l2
+        self.reg_l1 = reg_l1
         self.learning_rate = learning_rate
         self.n_epoch = n_epoch
 
     def fit(self, X, y):
         n_features = X.shape[1]
-        self.graph = tf.Graph()
-        self.session = tf.Session(graph=self.graph)
-        with self.graph.as_default():
-            self.xs_indices = tf.placeholder(tf.int64, shape=[None, 2])
-            self.xs_values = tf.placeholder(tf.float32, shape=[None])
-            self.xs_shape = tf.placeholder(tf.int64, shape=[2])
+        self._graph = tf.Graph()
+        self._session = tf.Session(graph=self._graph)
+        with self._graph.as_default():
+            self._xs_indices = tf.placeholder(tf.int64, shape=[None, 2])
+            self._xs_values = tf.placeholder(tf.float32, shape=[None])
+            self._xs_shape = tf.placeholder(tf.int64, shape=[2])
+            self._lr = tf.placeholder(tf.float32, shape=[])
             xs = tf.SparseTensor(
-                indices=self.xs_indices,
-                values=self.xs_values,
-                shape=self.xs_shape,
+                indices=self._xs_indices,
+                values=self._xs_values,
+                shape=self._xs_shape,
             )
             self.ys = tf.placeholder(tf.float32, shape=[None])
             self.w = tf.Variable(tf.zeros(n_features))
@@ -29,35 +33,44 @@ class LogisticRegression(object):
                     xs, tf.expand_dims(self.w, 1)) + self.bias,
                 axis=1)
             self.output = tf.nn.sigmoid(logits)
-            self.loss = tf.reduce_sum(
+            self.loss = tf.reduce_mean(
                 tf.nn.sigmoid_cross_entropy_with_logits(logits, self.ys))
-            self.loss += self.reg_alpha *  tf.nn.l2_loss(self.w)
+            if self.reg_l2:
+                self.loss += self.reg_l2 * tf.nn.l2_loss(self.w)
+            if self.reg_l1:
+                self.loss += self.reg_l1 * tf.reduce_sum(tf.abs(self.w))
+            batch_size = tf.shape(self.ys)[0]
             self.train_op = (
-                tf.train.GradientDescentOptimizer(self.learning_rate)
-                .minimize(self.loss))
+                tf.train.GradientDescentOptimizer(self._lr)
+                .minimize(self.loss * tf.cast(batch_size, tf.float32)))
 
-            self.session.run(tf.global_variables_initializer())
+            self._session.run(tf.global_variables_initializer())
 
             feed_dict = self.x_feed_dict(X)
+            lr = self.learning_rate
             feed_dict[self.ys] = y
             # TODO batches
+            prev_epoch_loss = float('inf')
             for i in range(self.n_epoch):
-                _, loss = self.session.run(
+                feed_dict[self._lr] = lr
+                _, epoch_loss = self._session.run(
                     [self.train_op, self.loss], feed_dict=feed_dict)
-                print(i, loss / len(y))
+                if np.isclose(epoch_loss, prev_epoch_loss, atol=1e-4):
+                    break
+                prev_epoch_loss = epoch_loss
 
     def x_feed_dict(self, X):
         coo = X.tocoo()
         return {
-            self.xs_indices: np.stack([coo.row, coo.col]).T,
-            self.xs_values: coo.data,
-            self.xs_shape: np.array(X.shape),
+            self._xs_indices: np.stack([coo.row, coo.col]).T,
+            self._xs_values: coo.data,
+            self._xs_shape: np.array(X.shape),
         }
 
     def predict_proba(self, X):
-        pos_prob = self.session.run(self.output, self.x_feed_dict(X))
+        pos_prob = self._session.run(self.output, self.x_feed_dict(X))
         return np.stack([1 - pos_prob, pos_prob]).T
 
     @property
     def coef_(self):
-        return np.array([self.w.eval(self.session)])
+        return np.array([self.w.eval(self._session)])
