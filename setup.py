@@ -18,9 +18,8 @@ setup(
     include_package_data=True,
     install_requires=[
         'six',
-        'lxml',
+        'html_text',
         'numpy',
-        'parsel',
         'scikit-learn>=0.18',
         'scipy',
         'webstruct>=0.4',
