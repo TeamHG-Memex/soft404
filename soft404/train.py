@@ -122,6 +122,17 @@ def get_vec_filename(in_prefix):
     return '{}.vec.pkl'.format(in_prefix)
 
 
+def explain_weights(clf, vec, top):
+    from eli5._feature_weights import get_top_features
+    weights = get_top_features(
+        np.array(vec.get_feature_names() + ['<BIAS>']),
+        np.array(list(clf.coef_[0]) + [clf.bias]),
+        top)
+    from eli5.base import Explanation, TargetExplanation
+    return Explanation('logreg', targets=[
+        TargetExplanation('y', feature_weights=weights)])
+
+
 def eval_clf(arg, text_features, ys, vec_filename,
              show_features=False,
              n_best_features=None, save=None):
@@ -180,8 +191,10 @@ def eval_clf(arg, text_features, ys, vec_filename,
 
 
 def make_text_pipeline():
+    from soft404.logreg import LogisticRegression
     text_clf = SGDClassifier(loss='log', penalty='elasticnet',
                              alpha=0.0005, l1_ratio=0.3)
+    text_clf = LogisticRegression(bias=-5)
     return Pipeline([
         ('tf-idf', TfidfTransformer()),
         ('clf', text_clf)]), text_clf
