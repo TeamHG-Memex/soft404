@@ -4,13 +4,14 @@ import tensorflow as tf
 
 class LogisticRegression(object):
     def __init__(self, bias, reg_l2=0.0001, reg_l1=0.0,
-                 learning_rate=0.1, n_epoch=50):
+                 learning_rate=0.1, n_epoch=50, batch_size=1024):
         # TODO - set learning_rate like in SGDClassifier
         self.bias = bias
         self.reg_l2 = reg_l2
         self.reg_l1 = reg_l1
         self.learning_rate = learning_rate
         self.n_epoch = n_epoch
+        self.batch_size = batch_size
 
     def fit(self, X, y):
         n_features = X.shape[1]
@@ -46,15 +47,23 @@ class LogisticRegression(object):
 
             self._session.run(tf.global_variables_initializer())
 
-            feed_dict = self.x_feed_dict(X)
             lr = self.learning_rate
-            feed_dict[self.ys] = y
-            # TODO batches
             prev_epoch_loss = float('inf')
             for i in range(self.n_epoch):
-                feed_dict[self._lr] = lr
-                _, epoch_loss = self._session.run(
-                    [self.train_op, self.loss], feed_dict=feed_dict)
+                n = len(y)
+                batches = [
+                    (X[idx: min(n, idx + self.batch_size)],
+                     y[idx: idx + self.batch_size])
+                    for idx in range(0, n, self.batch_size)]
+                np.random.shuffle(batches)
+                epoch_loss = 0
+                for _x, _y in batches:
+                    feed_dict = self.x_feed_dict(_x)
+                    feed_dict[self.ys] = _y
+                    feed_dict[self._lr] = lr
+                    _, loss = self._session.run(
+                        [self.train_op, self.loss], feed_dict=feed_dict)
+                    epoch_loss += loss / len(batches)
                 if np.isclose(epoch_loss, prev_epoch_loss, atol=1e-4):
                     break
                 prev_epoch_loss = epoch_loss
