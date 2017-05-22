@@ -3,10 +3,11 @@ Changes
 
 .. contents::
 
-??? (TBA)
----------
+0.2.1 (2017-05-22)
+------------------
 
 - packaging fix: scipy > 0.18 is required to use the prebuilt model
+
 
 0.2.0 (2017-01-19)
 ------------------
