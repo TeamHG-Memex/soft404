@@ -3,11 +3,17 @@ Changes
 
 .. contents::
 
+??? (TBA)
+---------
+
+- packaging fix: scipy > 0.18 is required to use the prebuilt model
+
 0.2.0 (2017-01-19)
 ------------------
 
 - Python 2.7 support for prediction
 - require (and work on) scikit-learn 0.18+
+- fixed support for recent webstruct versions
 - improve model accuracy, remove numeric features
 
 

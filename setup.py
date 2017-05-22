@@ -21,7 +21,7 @@ setup(
         'html_text',
         'numpy',
         'scikit-learn>=0.18',
-        'scipy',
+        'scipy>=0.18',
         'webstruct>=0.4',
     ],
     long_description=read('README.rst'),
