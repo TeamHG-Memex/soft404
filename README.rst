@@ -92,5 +92,5 @@ License is MIT.
 ----
 
 .. image:: https://hyperiongray.s3.amazonaws.com/define-hg.svg
-	:target: https://hyperiongray.com/?pk_campaign=github&pk_kwd=soft404
+	:target: https://www.hyperiongray.com/?pk_campaign=github&pk_kwd=soft404
 	:alt: define hyperiongray
