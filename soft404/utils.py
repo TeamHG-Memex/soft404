@@ -40,7 +40,7 @@ def get_text_blocks(tree):
 
 def html_to_item(html):
     sel = cleaned_selector(html)
-    text = selector_to_text(sel)
+    text = selector_to_text(sel, guess_layout=False)
     text_item = {
         'text': text,
         'title': ' '.join(sel.xpath('//title//text()').extract()),
