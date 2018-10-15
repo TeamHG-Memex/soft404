@@ -24,8 +24,7 @@ try:
 except ImportError:
     import json
 
-from soft404.utils import html_to_item, item_to_text, token_pattern
-from soft404.predict import Soft404Classifier, _function_transformer
+from soft404.utils import item_to_text, token_pattern
 
 
 def main(args=None):
@@ -170,11 +169,7 @@ def eval_clf(arg, text_features, ys, vec_filename,
             'ROC AUC': metrics.roc_auc_score(test_y, pred_y),
         })
     if save:
-        pipeline = Pipeline([
-            ('html_to_item', _function_transformer(html_to_item)),
-            ('item_to_text', _function_transformer(item_to_text)),
-            ('vec', vec),
-            ] + text_pipeline.steps)
+        pipeline = Pipeline([('vec', vec)] + text_pipeline.steps)
         Soft404Classifier.save_model(save, pipeline)
     return result_metrics
 
