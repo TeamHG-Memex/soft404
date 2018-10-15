@@ -24,6 +24,7 @@ try:
 except ImportError:
     import json
 
+from soft404.predict import Soft404Classifier
 from soft404.utils import item_to_text, token_pattern
 
 
