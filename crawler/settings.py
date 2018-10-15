@@ -40,3 +40,7 @@ MAX_DOMAIN_REQUESTS = 7
 
 PROB_404 = 0.3
 
+try:
+    from local_settings import *  # NOQA
+except ImportError:
+    pass

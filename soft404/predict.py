@@ -2,7 +2,10 @@ from functools import partial
 import os.path
 
 from sklearn.externals import joblib
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
+
+from soft404.utils import html_to_item, item_to_text
 
 
 default_location = os.path.join(os.path.dirname(__file__), 'clf.joblib')
@@ -11,7 +14,14 @@ default_classifier = None
 
 class Soft404Classifier(object):
     def __init__(self, filename=default_location):
-        self.pipeline = joblib.load(filename)
+        ppl = joblib.load(filename)
+        func_steps = [
+            ('html_to_item', _function_transformer(html_to_item)),
+            ('item_to_text', _function_transformer(item_to_text)),
+        ]
+        # We don't include the func transformers in the saved model to
+        # avoid sklearn incompatibility warnings
+        self.pipeline = Pipeline(func_steps + ppl.steps)
 
     def predict(self, html):
         """ Return probability of the page being a 404 page.

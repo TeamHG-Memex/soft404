@@ -11,3 +11,5 @@ htmlcov
 *.jl.gz
 .ipynb_checkpoints/
 crawler/job/
+*.vec.pkl
+*.text_features.joblib
