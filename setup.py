@@ -1,3 +1,4 @@
+
 import os
 from setuptools import setup
 
@@ -18,7 +19,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'six',
-        'html_text',
+        'html_text>=0.4.1',
         'numpy',
         'scikit-learn>=0.18',
         'scipy>=0.18',
