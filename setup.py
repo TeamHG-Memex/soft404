@@ -24,6 +24,7 @@ setup(
         'scikit-learn>=0.18',
         'scipy>=0.18',
         'webstruct>=0.4',
+        'parsel>=1.4',
     ],
     long_description=read('README.rst'),
     classifiers=[
