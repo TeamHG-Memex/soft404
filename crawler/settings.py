@@ -22,14 +22,13 @@ TELNETCONSOLE_ENABLED = False
 RETRY_ENABLED = False
 
 DEFAULT_REQUEST_HEADERS = {
-   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-   'Accept-Language': 'en',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en',
 }
 
-FEED_STORAGES = {
-    'gzip': 'exports.GzipFileFeedStorage',
+FEED_EXPORTERS = {
+    'jl.gz': 'exports.JsonLinesGzipItemExporter',
 }
-
 DOWNLOADER_MIDDLEWARES = {
     'middleware.Gather404Middleware': 450,
 }

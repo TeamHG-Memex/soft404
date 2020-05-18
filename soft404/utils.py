@@ -1,9 +1,7 @@
 import re
 
 from html_text.html_text import cleaned_selector, selector_to_text
-import numpy as np
 from webstruct.html_tokenizer import HtmlTokenizer
-
 
 BLOCK_TAGS = {
     'address', 'article', 'aside', 'audio', 'blockquote', 'canvas', 'dd',
@@ -14,7 +12,6 @@ BLOCK_TAGS = {
     # not really block, but makes sense to include
     'li', 'body',
 }
-
 
 html_tokenizer = HtmlTokenizer()
 

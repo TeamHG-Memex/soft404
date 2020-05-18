@@ -3,6 +3,13 @@ Changes
 
 .. contents::
 
+0.2.2 (2020-05-13)
+------------------
+
+- removed Python 2 support
+- update packages to the latest version
+
+
 0.2.1 (2017-05-22)
 ------------------
 

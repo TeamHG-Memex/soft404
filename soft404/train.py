@@ -12,13 +12,14 @@ from eli5.sklearn.explain_weights import explain_weights
 from eli5.formatters import format_as_text
 import json_lines
 import numpy as np
-from sklearn.externals import joblib
+import joblib
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import Pipeline
 from sklearn import metrics
 from sklearn.model_selection import GroupShuffleSplit
 import tqdm
+
 try:
     import ujson as json
 except ImportError:
@@ -74,7 +75,7 @@ def main(args=None):
         show_features=args.show_features,
         vec_filename=get_vec_filename(args.in_prefix),
         n_best_features=args.n_best_features,
-        )
+    )
 
     if args.save:
         _eval_clf((0, (np.array(range(len(meta))), [])), save=args.save)
@@ -125,7 +126,6 @@ def get_vec_filename(in_prefix):
 def eval_clf(arg, text_features, ys, vec_filename,
              show_features=False,
              n_best_features=None, save=None):
-
     fold_idx, (train_idx, test_idx) = arg
     if fold_idx == 0:
         print('{} in train, {} in test'.format(len(train_idx), len(test_idx)))
@@ -156,7 +156,7 @@ def eval_clf(arg, text_features, ys, vec_filename,
         text_pipeline.fit(text_features[train_idx], ys[train_idx])
         inverse = {idx: w for w, idx in vec.vocabulary_.items()}
         vec.vocabulary_ = {inverse[idx]: i for i, idx in
-                            enumerate(best_feature_indices)}
+                           enumerate(best_feature_indices)}
         vec.stop_words_ = None
         if show_features and fold_idx == 0:
             print(format_as_text(

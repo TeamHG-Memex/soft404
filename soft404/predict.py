@@ -1,12 +1,11 @@
 from functools import partial
 import os.path
 
-from sklearn.externals import joblib
+import joblib
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 
 from soft404.utils import html_to_item, item_to_text
-
 
 default_location = os.path.join(os.path.dirname(__file__), 'clf.joblib')
 default_classifier = None

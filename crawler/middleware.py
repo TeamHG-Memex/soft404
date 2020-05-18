@@ -8,6 +8,7 @@ import tldextract
 class Gather404Middleware(object):
     """ Limit number of requests to each domain.
     """
+
     def __init__(self, settings):
         self.max_domain_requests = settings.getint('MAX_DOMAIN_REQUESTS')
         self.domain_request_count = defaultdict(int)  # domain: count

@@ -1,5 +1,5 @@
 import random
-from six.moves.urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 from string import ascii_lowercase
 
 import scrapy

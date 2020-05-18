@@ -1,40 +1,27 @@
 # -*- coding: utf-8 -*-
-import os
 import gzip
-
-from zope.interface import Interface, implementer
-from w3lib.url import file_uri_to_path
-from scrapy.extensions.feedexport import IFeedStorage
+from scrapy.exporters import JsonLinesItemExporter
 
 
-@implementer(IFeedStorage)
-class GzipFileFeedStorage(object):
+class JsonLinesGzipItemExporter(JsonLinesItemExporter):
     """
-    Storage which exports data to a gzipped file.
+    from https://github.com/scrapy/scrapy/issues/2174
+    Sample exporter for .jl + .gz format.
     To use it, add
     ::
-        FEED_STORAGES = {
-            'gzip': 'deepdeep.exports.GzipFileFeedStorage',
+
+        FEED_EXPORTERS = {
+            'jl.gz': 'exports.JsonLinesGzipItemExporter',
         }
+
     to settings.py and then run scrapy crawl like this::
-        scrapy crawl foo -o gzip:/path/to/items.jl
-    The command above will create ``/path/to/items.jl.gz`` file
-    (.gz extension is added automatically).
-    Other export formats are also supported, but it is recommended to use .jl.
-    If a spider is killed then gz archive may be partially broken.
-    In this case it user should read the broken archive line-by-line and stop
-    on gzip decoding errors, discarding the tail. It works OK with .jl exports.
+
+        scrapy crawl foo -o /path/to/items.jl.gz -t jl.gz
     """
-    COMPRESS_LEVEL = 4
 
-    def __init__(self, uri):
-        self.path = file_uri_to_path(uri) + ".gz"
+    def __init__(self, file, **kwargs):
+        gzfile = gzip.GzipFile(fileobj=file)
+        super(JsonLinesGzipItemExporter, self).__init__(gzfile, **kwargs)
 
-    def open(self, spider):
-        dirname = os.path.dirname(self.path)
-        if dirname and not os.path.exists(dirname):
-            os.makedirs(dirname, exist_ok=True)
-        return gzip.open(self.path, 'ab', compresslevel=self.COMPRESS_LEVEL)
-
-    def store(self, file):
-        file.close()
+    def finish_exporting(self):
+        self.file.close()

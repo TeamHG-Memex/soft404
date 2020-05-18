@@ -28,7 +28,7 @@ def test_integration(tmpdir: py.path.local):
                  'status': 200,
                  },
             ]
-        )]
+                                     )]
     )
     assert pages_path.exists()
     data_prefix = tmpdir.join('data')

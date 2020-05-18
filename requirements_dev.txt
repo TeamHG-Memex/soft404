@@ -1,8 +1,9 @@
-eli5==0.3.1
-json_lines==0.2.0
-langdetect==1.0.6
-pandas==0.18.1
-Scrapy==1.1.2
-tldextract==2.0.1
-tqdm==4.8.4
-ujson==1.35
+eli5==0.10.1
+json_lines==0.5.0
+langdetect==1.0.8
+pandas==1.0.3
+Scrapy==2.1.0
+tldextract==2.2.2
+tqdm==4.46.0
+ujson==2.0.3
+joblib==0.14.1

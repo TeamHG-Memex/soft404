@@ -62,7 +62,7 @@ Install dev requirements::
 Run the crawler for a while (results will appear in ``pages.jl.gz`` file)::
 
     cd crawler
-    scrapy crawl spider -o gzip:pages.jl -s JOBDIR=job
+    scrapy crawl spider -o pages.jl -t gzip -s JOBDIR=job
 
 
 Training
