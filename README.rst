@@ -17,8 +17,8 @@ A "soft" 404 page is a page that is served with 200 status,
 but is really a page that says that content is not available.
 
 **Note:** you may want to check out https://github.com/dogancanbakir/soft-404
-which has support for newer library and python versions and was independenly
-re-trained.
+which has support for newer library and python versions,
+and has a model which was independently re-trained.
 
 
 .. contents::
