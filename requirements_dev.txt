@@ -2,7 +2,7 @@ eli5==0.3.1
 json_lines==0.2.0
 langdetect==1.0.6
 pandas==0.18.1
-Scrapy==1.1.2
+Scrapy==1.8.1
 tldextract==2.0.1
 tqdm==4.8.4
 ujson==1.35
